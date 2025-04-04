@@ -15,11 +15,13 @@ func TestBasicDataTypesEncodingDecoding(t *testing.T) {
 		bt    Type
 	}{
 		{"integer", 47, TypeInt},
-		// {"float", 0.0000000000000000000000000000000000000000000000000000000000000000000005, TypeFloat},
-		// {"large integer", 1844674407370955161, TypeInt},
-		// {"bool", true, TypeBool},
-		// {"null", nil, TypeNull},
-		// {"string", "Hello, World", TypeString},
+		{"max_unsigned_id", ^uint64(0), TypeUInt},
+		{"max_unsigned_id_less_1", ^uint64(0) - 1, TypeUInt},
+		{"min_signed_int", -(1 << 63), TypeInt},
+		{"min_signed_int", uint8(1), TypeUInt},
+		{"zero", 0, TypeInt},
+		{"float", 0.0000000000000000000000000000000000000000000000000000000000000000000005, TypeFloat},
+		{"float-small", 0.1, TypeFloat},
 	}
 
 	for _, tt := range tests {
@@ -41,13 +43,8 @@ func Test_EncodeNum(t *testing.T) {
 		input any
 		bt    Type
 	}{
-		{"integer", 47, TypeInt},
-		{"max_unsigned_id", ^uint64(0), TypeInt},
-		{"max_unsigned_id_less_1", ^uint64(0) - 1, TypeInt},
-		{"min_signed_int", -(1 << 63), TypeUInt},
-		{"min_signed_int", uint8(1), TypeUInt},
-		{"zero", 0, TypeInt},
-		{"float", 0.0000000000000000000000000000000000000000000000000000000000000000000005, TypeFloat},
+		// {"integer", 47, TypeInt},
+		{"float-small", 0.1, TypeFloat},
 		// {"large integer", 1844674407370955161, TypeInt},
 		// {"bool", true, TypeBool},
 		// {"null", nil, TypeNull},
