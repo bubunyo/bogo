@@ -1,8 +1,6 @@
 package bogo
 
 import (
-	"encoding/binary"
-	"fmt"
 	"testing"
 )
 
@@ -53,11 +51,4 @@ func TestParser(t *testing.T) {
 	// for key, info := range taggedFields {
 	// fmt.Printf("Key: %s -> Field: %s, Type: %v, Value: %v\n", key, info.FieldName, info.FieldType, info.Value)
 	// }
-}
-
-func TestRandom(t *testing.T) {
-	bs := make([]byte, 4)
-	fmt.Println(MaxUint)
-	binary.LittleEndian.PutUint32(bs, MaxUint)
-	fmt.Println(bs)
 }

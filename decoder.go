@@ -12,32 +12,35 @@ func Decode(data []byte) (any, error) {
 		os.Exit(1)
 	}
 
-	dataTypeLen := Type(data[2])
 	switch Type(data[1]) {
 	case TypeNull:
 		return nil, nil
 	case TypeString:
-		storageLen, err := decodeInt(data[2 : maxStorageByteLength+2])
-		if err != nil {
-			return nil, err
-		}
-		return decodeString(data, 7, int(storageLen+7))
+		sizeLen := int(data[2])
+		return decodeString(data[3:], sizeLen)
 	case TypeBoolTrue:
 		return true, nil
 	case TypeBoolFalse:
 		return false, nil
 	case TypeInt:
-		return decodeInt(data[3 : 3+dataTypeLen])
+		sizeLen := int(data[2])
+		return decodeInt(data[3 : 3+sizeLen])
 	case TypeUint:
-		return decodeUint(data[3 : 3+dataTypeLen])
+		sizeLen := int(data[2])
+		return decodeUint(data[3 : 3+sizeLen])
 	case TypeFloat:
-		return decodeFloat(data[3 : 3+dataTypeLen])
+		sizeLen := int(data[2])
+		return decodeFloat(data[3 : 3+sizeLen])
+	default:
+		return nil, fmt.Errorf("type coder not supported, type=%d", data[1])
 	}
 
-	return nil, nil
 }
 
-func decodeString(data []byte, n, m int) (any, error) {
-	s := string(data[n:m])
-	return s, nil
+func decodeString(data []byte, sizeLen int) (any, error) {
+	size, err := decodeUint(data[:sizeLen])
+	if err != nil {
+		return nil, err
+	}
+	return string(data[sizeLen : sizeLen+int(size)]), nil
 }

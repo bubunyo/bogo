@@ -3,6 +3,7 @@ package bogo
 import (
 	"bytes"
 	"errors"
+	"fmt"
 )
 
 func Encode(v any) ([]byte, error) {
@@ -35,18 +36,26 @@ func Encode(v any) ([]byte, error) {
 	return nil, errors.New("bogo error: unsupported type")
 }
 
+var stringEncodeError = errors.New("string encoding error")
+
+func wrapError(err1, err2 error) error {
+	return fmt.Errorf("%w, %s", err1, err2)
+}
+
 func encodeString(v string) ([]byte, error) {
-	strLen, err := encodeInt(int64(len(v)))
+	if len(v) == 0 {
+		return []byte{byte(TypeString), 0}, nil
+	}
+	lenInfoBytes, err := encodeUint(uint64(len(v)))
+	if err != nil {
+		return []byte{}, wrapError(stringEncodeError, err)
+	}
 	buf := bytes.Buffer{}
-	buf.Grow(3 + len(strLen))
 	if err = buf.WriteByte(byte(TypeString)); err != nil {
-		return []byte{}, err
+		return []byte{}, wrapError(stringEncodeError, err)
 	}
-	if err = buf.WriteByte(byte(len(strLen))); err != nil {
-		return []byte{}, err
-	}
-	if _, err = buf.Write(strLen); err != nil {
-		return []byte{}, err
+	if _, err = buf.Write(lenInfoBytes[1:]); err != nil {
+		return []byte{}, wrapError(stringEncodeError, err)
 	}
 	buf.WriteString(v)
 
