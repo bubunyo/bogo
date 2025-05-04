@@ -84,6 +84,7 @@ func TestNumbersEncodingDecoding(t *testing.T) {
 		{"float", 3.1415926535897932384626433832795028841971693993751058209749445923819343, TypeFloat},
 		{"float", 0.1, TypeFloat},
 		{"negative-float", -0.0005893, TypeFloat},
+		{"negative-float", 0.5, TypeFloat},
 	}
 
 	for _, tt := range tests {

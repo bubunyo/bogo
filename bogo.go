@@ -17,13 +17,41 @@ const (
 	TypeBoolTrue
 	TypeBoolFalse
 	TypeString
-	TypeArray
-	TypeObject
 	TypeByte
 	TypeInt
 	TypeUint
 	TypeFloat
+	TypeAny
+
+	TypeArray
+	TypeObject
 )
+
+func (t Type) String() string {
+	switch t {
+	case TypeNull:
+		return "<null>"
+	case TypeBoolTrue:
+		return "<bool:true>"
+	case TypeBoolFalse:
+		return "<bool:false>"
+	case TypeString:
+		return "<string>"
+	case TypeArray:
+		return "<array>"
+	case TypeObject:
+		return "<object>"
+	case TypeByte:
+		return "<byte>"
+	case TypeInt:
+		return "<int>"
+	case TypeUint:
+		return "<uint>"
+	case TypeFloat:
+		return "<float>"
+	}
+	return "<unknown>"
+}
 
 type TypeNumber interface {
 	int64 | float64

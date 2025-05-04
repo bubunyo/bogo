@@ -89,9 +89,12 @@ func encodeFloat(f float64) ([]byte, error) {
 	binary.LittleEndian.PutUint16(buf[2:4], signExp) // write 2 bytes
 
 	// encode mantisa
-	n := binary.PutUvarint(buf[4:], mant)
+	n := 0
+	if mant != 0 {
+		n = binary.PutUvarint(buf[4:], mant)
+	}
 
-	buf[1] = byte(n + 4)
+	buf[1] = byte(n + 2)
 
 	return buf[:n+4], nil
 }
@@ -104,9 +107,13 @@ func decodeFloat(data []byte) (float64, error) {
 	sign := int(signExpo >> 15)
 	exp := signExpo & 0x7FFF
 
-	mantissa, n := binary.Uvarint(data[2:])
-	if n <= 0 {
-		return 0, fmt.Errorf("failed to decode mantissa")
+	mantissa := uint64(0)
+	if len(data) > 2 {
+		n := 0
+		mantissa, n = binary.Uvarint(data[2:])
+		if n <= 0 {
+			return 0, fmt.Errorf("failed to decode mantissa")
+		}
 	}
 
 	// Rebuild float64 bits
