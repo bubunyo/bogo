@@ -134,8 +134,6 @@ func decodeArray(data []byte, v any) error {
 			i = endI
 		case TypeObject:
 			panic("setup decoder for object")
-		case TypeAny:
-			panic("setup decoder for object")
 		}
 
 		if !entryVal.Type().AssignableTo(elem.Type().Elem()) {

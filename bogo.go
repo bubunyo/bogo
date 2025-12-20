@@ -1,8 +1,5 @@
 package bogo
 
-func UnMarshall() {}
-func Marshall()   {}
-
 type Type byte
 
 // Type constants
@@ -21,9 +18,11 @@ const (
 	TypeInt
 	TypeUint
 	TypeFloat
-	TypeAny
+	TypeBlob
+	TypeTimestamp
 
 	TypeArray
+	TypeTypedArray
 	TypeObject
 )
 
@@ -39,6 +38,8 @@ func (t Type) String() string {
 		return "<string>"
 	case TypeArray:
 		return "<array>"
+	case TypeTypedArray:
+		return "<typed_array>"
 	case TypeObject:
 		return "<object>"
 	case TypeByte:
@@ -49,6 +50,10 @@ func (t Type) String() string {
 		return "<uint>"
 	case TypeFloat:
 		return "<float>"
+	case TypeBlob:
+		return "<blob>"
+	case TypeTimestamp:
+		return "<timestamp>"
 	}
 	return "<unknown>"
 }

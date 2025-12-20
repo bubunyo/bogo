@@ -70,14 +70,13 @@ func (p *Parser) extractFields(v reflect.Value, t reflect.Type, result *map[stri
 		case reflect.String:
 			fieldType = TypeString
 		case reflect.Int:
-			fieldType = TypeString
+			fieldType = TypeInt
 		default:
 			fmt.Println(">>>>>>>>>>>> unknown type", field.Type.String())
 		}
 
 		// Add field to result
-		// (*result)[key] = FieldInfo{
-		(*result)[""] = FieldInfo{
+		(*result)[string(key)] = FieldInfo{
 			Key:   key,
 			Type:  fieldType,
 			Value: fieldValue.Interface(),
