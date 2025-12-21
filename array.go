@@ -133,7 +133,52 @@ func decodeArray(data []byte, v any) error {
 
 			i = endI
 		case TypeObject:
-			panic("setup decoder for object")
+			// Read object size
+			size, err := computeDataSize()
+			if err != nil {
+				return err
+			}
+			
+			// Decode object
+			objData := data[i:i+int(size)]
+			obj, err := decodeObject(objData[2:]) // Skip type and size bytes
+			if err != nil {
+				return wrapError(arrDecErr, "failed to decode object", err.Error())
+			}
+			
+			entryVal = reflect.ValueOf(obj)
+			i += int(size)
+		case TypeBlob:
+			// Read blob size
+			size, err := computeDataSize()
+			if err != nil {
+				return err
+			}
+			
+			// Decode blob  
+			blobData := data[i:i+int(size)]
+			blob, err := decodeBlob(blobData[2:]) // Skip type and size bytes
+			if err != nil {
+				return wrapError(arrDecErr, "failed to decode blob", err.Error())
+			}
+			
+			entryVal = reflect.ValueOf(blob)
+			i += int(size)
+		case TypeTimestamp:
+			// Read timestamp (fixed 8 bytes)
+			if i+9 > len(data) { // 1 type + 8 data bytes
+				return wrapError(arrDecErr, "insufficient data for timestamp")
+			}
+			
+			timestamp, err := decodeTimestamp(data[i+1:i+9])
+			if err != nil {
+				return wrapError(arrDecErr, "failed to decode timestamp", err.Error())
+			}
+			
+			entryVal = reflect.ValueOf(timestamp)
+			i += 9
+		default:
+			return wrapError(arrDecErr, fmt.Sprintf("unsupported array element type: %d", entryType))
 		}
 
 		if !entryVal.Type().AssignableTo(elem.Type().Elem()) {

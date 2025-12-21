@@ -1,156 +1,278 @@
 package bogo
 
 import (
-	"bytes"
-	"encoding/binary"
-	"errors"
 	"fmt"
-	"reflect"
-	"time"
+	"io"
 )
 
-func Encode(v any) ([]byte, error) {
-	res, err := encode(v)
+// Encoder provides structured encoding with configurable options
+type Encoder struct {
+	// Configuration options
+	MaxDepth        int  // Maximum nesting depth for objects/arrays (0 = unlimited)
+	StrictMode      bool // Strict type checking and validation
+	CompactArrays   bool // Use typed arrays when beneficial
+	ValidateStrings bool // Validate UTF-8 encoding in strings
+	
+	// Internal state
+	depth int
+}
+
+// EncoderOption is a function type for configuring an Encoder
+type EncoderOption func(*Encoder)
+
+// NewConfigurableEncoder creates a new Encoder with optional configuration
+func NewConfigurableEncoder(options ...EncoderOption) *Encoder {
+	e := &Encoder{
+		MaxDepth:        100, // Default max depth
+		StrictMode:      false,
+		CompactArrays:   true,
+		ValidateStrings: true,
+	}
+	
+	for _, option := range options {
+		option(e)
+	}
+	
+	return e
+}
+
+// Encoder option functions
+func WithMaxDepth(depth int) EncoderOption {
+	return func(e *Encoder) {
+		e.MaxDepth = depth
+	}
+}
+
+func WithStrictMode(strict bool) EncoderOption {
+	return func(e *Encoder) {
+		e.StrictMode = strict
+	}
+}
+
+func WithCompactArrays(compact bool) EncoderOption {
+	return func(e *Encoder) {
+		e.CompactArrays = compact
+	}
+}
+
+func WithStringValidation(validate bool) EncoderOption {
+	return func(e *Encoder) {
+		e.ValidateStrings = validate
+	}
+}
+
+// Encode encodes a value using the configured encoder
+func (e *Encoder) Encode(v any) ([]byte, error) {
+	e.depth = 0 // Reset depth counter
+	
+	res, err := e.encode(v)
 	if err != nil {
 		return nil, err
 	}
+	
 	return append([]byte{Version}, res...), nil
 }
 
-func encode(v any) ([]byte, error) {
-	if v == nil {
-		return []byte{TypeNull}, nil
+// EncodeTo encodes a value directly to an io.Writer
+func (e *Encoder) EncodeTo(w io.Writer, v any) error {
+	data, err := e.Encode(v)
+	if err != nil {
+		return err
 	}
 	
-	data := reflect.ValueOf(v)
+	_, err = w.Write(data)
+	return err
+}
 
-	if !data.IsValid() {
-		return []byte{TypeNull}, nil
+// encode is the internal encoding function with depth tracking
+func (e *Encoder) encode(v any) ([]byte, error) {
+	// Check max depth
+	if e.MaxDepth > 0 && e.depth > e.MaxDepth {
+		return nil, fmt.Errorf("bogo encode error: maximum nesting depth exceeded (%d)", e.MaxDepth)
 	}
 	
-	// Handle nil pointers, slices, maps, etc.
-	if data.CanInterface() && data.Kind() != reflect.Invalid {
-		switch data.Kind() {
-		case reflect.Ptr, reflect.Interface, reflect.Slice, reflect.Map, reflect.Chan, reflect.Func:
-			if data.IsNil() {
-				return []byte{TypeNull}, nil
+	// Handle null values
+	if isNullValue(v) {
+		return encodeNull(), nil
+	}
+	
+	// Delegate to type-specific encoding with validation
+	switch val := v.(type) {
+	case string:
+		if e.ValidateStrings && !isValidUTF8(val) {
+			return nil, fmt.Errorf("bogo encode error: invalid UTF-8 string")
+		}
+		return encodeString(val)
+		
+	case bool:
+		return encodeBool(val), nil
+		
+	case byte:
+		return encodeByte(val)
+		
+	case []byte:
+		return encodeBlob(val)
+		
+	case []string:
+		if e.CompactArrays {
+			return e.encodeTypedArrayWithDepth(val)
+		}
+		return e.encodeArrayWithDepth(val)
+		
+	case []int:
+		if e.CompactArrays {
+			return e.encodeTypedArrayWithDepth(val)
+		}
+		return e.encodeArrayWithDepth(val)
+		
+	case []int64:
+		if e.CompactArrays {
+			return e.encodeTypedArrayWithDepth(val)
+		}
+		return e.encodeArrayWithDepth(val)
+		
+	case []float64:
+		if e.CompactArrays {
+			return e.encodeTypedArrayWithDepth(val)
+		}
+		return e.encodeArrayWithDepth(val)
+		
+	case []bool:
+		if e.CompactArrays {
+			return e.encodeTypedArrayWithDepth(val)
+		}
+		return e.encodeArrayWithDepth(val)
+		
+	case map[string]any:
+		return e.encodeObjectWithDepth(val)
+		
+	default:
+		// Use reflection for complex types
+		return e.encodeGeneric(v)
+	}
+}
+
+// encodeArrayWithDepth encodes arrays with depth tracking
+func (e *Encoder) encodeArrayWithDepth(v any) ([]byte, error) {
+	e.depth++
+	defer func() { e.depth-- }()
+	
+	return encodeArray(v)
+}
+
+// encodeTypedArrayWithDepth encodes typed arrays with depth tracking
+func (e *Encoder) encodeTypedArrayWithDepth(v any) ([]byte, error) {
+	e.depth++
+	defer func() { e.depth-- }()
+	
+	return encodeTypedArray(v)
+}
+
+// encodeObjectWithDepth encodes objects with depth tracking
+func (e *Encoder) encodeObjectWithDepth(v map[string]any) ([]byte, error) {
+	// Check depth BEFORE incrementing
+	if e.MaxDepth > 0 && e.depth >= e.MaxDepth {
+		return nil, fmt.Errorf("bogo encode error: maximum nesting depth exceeded (%d)", e.MaxDepth)
+	}
+	
+	e.depth++
+	defer func() { e.depth-- }()
+	
+	// Validate object keys if in strict mode
+	if e.StrictMode {
+		for key := range v {
+			if len(key) > 255 {
+				return nil, fmt.Errorf("bogo encode error: object key too long (%d bytes, max 255)", len(key))
+			}
+			if e.ValidateStrings && !isValidUTF8(key) {
+				return nil, fmt.Errorf("bogo encode error: invalid UTF-8 in object key")
 			}
 		}
 	}
-
-	// Special case for time.Time
-	if t, ok := v.(time.Time); ok {
-		return encodeTimestamp(t.UnixMilli())
-	}
-
-	switch data.Kind() {
-	case reflect.Ptr:
-		// Dereference pointer
-		return encode(data.Elem().Interface())
-	case reflect.Bool:
-		return encodeBool(data.Interface().(bool)), nil
-
-	case reflect.String:
-		buf, err := encodeString(data.Interface().(string))
-		if err != nil {
-			return nil, err
-		}
-		return buf, nil
-
-	case reflect.Uint8:
-		// Special case for byte (uint8)
-		return encodeByte(data.Interface().(byte))
-	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
-		reflect.Uint, reflect.Uint16, reflect.Uint32, reflect.Uint64,
-		reflect.Float32, reflect.Float64:
-		res, err := encodeNum(v)
-		if err != nil {
-			return nil, err
-		}
-		return res, nil
-
-	case reflect.Slice, reflect.Array:
-		// Special case for []byte - encode as blob
-		if data.Type().Elem().Kind() == reflect.Uint8 {
-			byteSlice := data.Interface().([]byte)
-			return encodeBlob(byteSlice)
-		}
-		return encodeArray(data.Interface())
-	case reflect.Map:
-		// object
-	}
-
-	return nil, fmt.Errorf("bogo error: unsupported type. type=%T", v)
+	
+	// For now, we need to handle nested encoding manually for proper depth tracking
+	// This is a simplified version - a full implementation would recursively encode each value
+	return encodeObject(v)
 }
 
-var stringEncodeError = errors.New("string encoding error")
-
-func wrapError(err1 error, err2 ...string) error {
-	return fmt.Errorf("%w, %s", err1, err2)
+// encodeGeneric handles generic types using reflection
+func (e *Encoder) encodeGeneric(v any) ([]byte, error) {
+	// For generic types, we need to track depth manually
+	// This is a simplified implementation - in practice you'd want to implement
+	// depth tracking for all reflection-based encoding
+	return encode(v)
 }
 
-func encodeString(v string) ([]byte, error) {
-	if len(v) == 0 {
-		return []byte{byte(TypeString), 0}, nil
+// isValidUTF8 checks if a string is valid UTF-8
+func isValidUTF8(s string) bool {
+	for _, r := range s {
+		if r == 0xFFFD { // Unicode replacement character indicates invalid UTF-8
+			return false
+		}
 	}
-	lenInfoBytes, err := encodeUint(uint64(len(v)))
+	return true
+}
+
+// EncodingStats provides statistics about encoding operations
+type EncodingStats struct {
+	BytesEncoded  int64
+	MaxDepthUsed  int
+	TypesEncoded  map[Type]int
+	ErrorsCount   int64
+}
+
+// StatsCollector is an encoder that collects statistics
+type StatsCollector struct {
+	*Encoder
+	Stats EncodingStats
+}
+
+// NewStatsCollector creates an encoder that collects encoding statistics
+func NewStatsCollector(options ...EncoderOption) *StatsCollector {
+	return &StatsCollector{
+		Encoder: NewConfigurableEncoder(options...),
+		Stats: EncodingStats{
+			TypesEncoded: make(map[Type]int),
+		},
+	}
+}
+
+// Encode wraps the parent Encode with statistics collection
+func (sc *StatsCollector) Encode(v any) ([]byte, error) {
+	data, err := sc.Encoder.Encode(v)
 	if err != nil {
-		return []byte{}, wrapError(stringEncodeError, err.Error())
-	}
-	buf := bytes.Buffer{}
-	if err = buf.WriteByte(byte(TypeString)); err != nil {
-		return []byte{}, wrapError(stringEncodeError, err.Error())
-	}
-	if _, err = buf.Write(lenInfoBytes[1:]); err != nil {
-		return []byte{}, wrapError(stringEncodeError, err.Error())
-	}
-	buf.WriteString(v)
-
-	return buf.Bytes(), nil
-}
-
-func encodeBool(b bool) []byte {
-	var by = TypeBoolFalse
-	if b {
-		by = TypeBoolTrue
-	}
-	return []byte{byte(by)}
-}
-
-var blobEncodeError = errors.New("blob encoding error")
-
-func encodeBlob(data []byte) ([]byte, error) {
-	dataLen := len(data)
-	encodedLengthData, err := encodeUint(uint64(dataLen))
-	if err != nil {
-		return []byte{}, wrapError(blobEncodeError, err.Error())
+		sc.Stats.ErrorsCount++
+		return nil, err
 	}
 	
-	buf := bytes.Buffer{}
-	if err = buf.WriteByte(byte(TypeBlob)); err != nil {
-		return []byte{}, wrapError(blobEncodeError, err.Error())
+	sc.Stats.BytesEncoded += int64(len(data))
+	if sc.Encoder.depth > sc.Stats.MaxDepthUsed {
+		sc.Stats.MaxDepthUsed = sc.Encoder.depth
 	}
 	
-	// Write length info (remove the type byte from encodeUint result)
-	if _, err = buf.Write(encodedLengthData[1:]); err != nil {
-		return []byte{}, wrapError(blobEncodeError, err.Error())
+	// Count type usage (simplified - just count the main type)
+	if len(data) >= 2 {
+		typeVal := Type(data[1])
+		sc.Stats.TypesEncoded[typeVal]++
 	}
 	
-	// Write the blob data
-	if _, err = buf.Write(data); err != nil {
-		return []byte{}, wrapError(blobEncodeError, err.Error())
+	return data, nil
+}
+
+// GetStats returns a copy of the current statistics
+func (sc *StatsCollector) GetStats() EncodingStats {
+	stats := sc.Stats
+	// Deep copy the map
+	stats.TypesEncoded = make(map[Type]int)
+	for k, v := range sc.Stats.TypesEncoded {
+		stats.TypesEncoded[k] = v
 	}
-
-	return buf.Bytes(), nil
+	return stats
 }
 
-func encodeTimestamp(timestamp int64) ([]byte, error) {
-	buf := make([]byte, 9) // 1 byte type + 8 bytes int64
-	buf[0] = byte(TypeTimestamp)
-	binary.LittleEndian.PutUint64(buf[1:], uint64(timestamp))
-	return buf, nil
-}
-
-func encodeByte(b byte) ([]byte, error) {
-	return []byte{byte(TypeByte), b}, nil
+// ResetStats resets all statistics
+func (sc *StatsCollector) ResetStats() {
+	sc.Stats = EncodingStats{
+		TypesEncoded: make(map[Type]int),
+	}
 }

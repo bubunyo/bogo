@@ -305,6 +305,245 @@ func TestByteFullRoundTrip(t *testing.T) {
 	}
 }
 
+func TestObjectEncodingDecoding(t *testing.T) {
+	tests := []struct {
+		name   string
+		object map[string]any
+	}{
+		{"empty object", map[string]any{}},
+		{"simple object", map[string]any{
+			"name": "John",
+			"age":  int64(25),
+		}},
+		{"complex object", map[string]any{
+			"name":      "Alice",
+			"age":       int64(30),
+			"active":    true,
+			"score":     95.5,
+			"metadata":  nil,
+			"timestamp": int64(1705317045123),
+		}},
+		{"nested object", map[string]any{
+			"user": map[string]any{
+				"name": "Bob",
+				"details": map[string]any{
+					"email": "bob@example.com",
+					"level": int64(3),
+				},
+			},
+			"settings": map[string]any{
+				"theme": "dark",
+				"notifications": true,
+			},
+		}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Test direct object encoding
+			encoded, err := encodeObject(tt.object)
+			require.NoError(t, err)
+			
+			// Check encoding format
+			assert.Equal(t, byte(TypeObject), encoded[0])
+			
+			// Decode
+			decoded, err := decodeObject(encoded[1:])
+			require.NoError(t, err)
+			
+			// Should get back the same object
+			assert.Equal(t, tt.object, decoded)
+		})
+	}
+}
+
+func TestObjectFullRoundTrip(t *testing.T) {
+	tests := []struct {
+		name   string
+		object map[string]any
+	}{
+		{"simple", map[string]any{"key": "value", "num": int64(42)}},
+		{"mixed types", map[string]any{
+			"str":   "hello",
+			"int":   int64(123),
+			"bool":  true,
+			"float": 3.14,
+			"null":  nil,
+			"bytes": []byte{1, 2, 3},
+		}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Encode using main Encode function
+			encoded, err := Encode(tt.object)
+			require.NoError(t, err)
+			
+			// Check encoding format
+			assert.Equal(t, Version, encoded[0]) // version
+			assert.Equal(t, byte(TypeObject), encoded[1]) // object type
+			
+			// Decode using main Decode function
+			decoded, err := Decode(encoded)
+			require.NoError(t, err)
+			
+			// Should get back the same object
+			decodedMap := decoded.(map[string]any)
+			assert.Equal(t, len(tt.object), len(decodedMap))
+			
+			for key, expectedValue := range tt.object {
+				actualValue, exists := decodedMap[key]
+				assert.True(t, exists, "Key %s should exist", key)
+				assert.Equal(t, expectedValue, actualValue, "Value for key %s should match", key)
+			}
+		})
+	}
+}
+
+func TestStructEncodingDecoding(t *testing.T) {
+	type Person struct {
+		Name string `bogo:"name"`
+		Age  int    `bogo:"age"`
+		City string
+	}
+
+	tests := []struct {
+		name   string
+		person Person
+	}{
+		{"simple person", Person{Name: "John", Age: 30, City: "New York"}},
+		{"empty person", Person{}},
+		{"partial person", Person{Name: "Alice", Age: 25}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Encode using main Encode function
+			encoded, err := Encode(tt.person)
+			require.NoError(t, err)
+			
+			// Check encoding format
+			assert.Equal(t, Version, encoded[0]) // version
+			assert.Equal(t, byte(TypeObject), encoded[1]) // object type (structs encode as objects)
+			
+			// Decode using main Decode function
+			decoded, err := Decode(encoded)
+			require.NoError(t, err)
+			
+			// Should get back a map representing the struct
+			decodedMap := decoded.(map[string]any)
+			assert.NotNil(t, decodedMap)
+			
+			// Check that struct fields are present with correct tag names or field names
+			if tt.person.Name != "" {
+				assert.Equal(t, tt.person.Name, decodedMap["name"]) // uses bogo tag
+			}
+			if tt.person.Age != 0 {
+				assert.Equal(t, int64(tt.person.Age), decodedMap["age"]) // uses bogo tag, int becomes int64
+			}
+			if tt.person.City != "" {
+				assert.Equal(t, tt.person.City, decodedMap["City"]) // uses field name
+			}
+		})
+	}
+}
+
+func TestTypedArrayEncodingDecoding(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    any
+		expected any
+	}{
+		{"string array", []string{"hello", "world", "test"}, []string{"hello", "world", "test"}},
+		{"int array", []int{1, 2, 3, 4, 5}, []int64{1, 2, 3, 4, 5}},
+		{"byte array", []byte{10, 20, 30, 40, 50}, []byte{10, 20, 30, 40, 50}},
+		{"bool array", []bool{true, false, true, false}, []bool{true, false, true, false}},
+		{"float array", []float64{1.1, 2.2, 3.3}, []float64{1.1, 2.2, 3.3}},
+		{"uint array", []uint64{100, 200, 300}, []uint64{100, 200, 300}},
+		{"single element", []int{42}, []int64{42}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Test direct typed array encoding
+			encoded, err := encodeTypedArray(tt.input)
+			require.NoError(t, err)
+			
+			// Check encoding format
+			assert.Equal(t, byte(TypeTypedArray), encoded[0])
+			
+			// Decode
+			decoded, err := decodeTypedArray(encoded[1:])
+			require.NoError(t, err)
+			assert.Equal(t, tt.expected, decoded)
+		})
+	}
+}
+
+func TestTypedArrayFullRoundTrip(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    any
+		expected any
+	}{
+		{"string array", []string{"hello", "world"}, []string{"hello", "world"}},
+		{"int array", []int{1, 2, 3}, []int64{1, 2, 3}},
+		{"byte array", []byte{10, 20, 30}, []byte{10, 20, 30}},
+		{"bool array", []bool{true, false, true}, []bool{true, false, true}},
+		{"float array", []float64{1.1, 2.2}, []float64{1.1, 2.2}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Note: This test won't automatically use typed arrays 
+			// The main encoder decides based on array homogeneity
+			// For now, we'll test the typed array functions directly
+			
+			// Encode using typed array function directly
+			encoded, err := encodeTypedArray(tt.input)
+			require.NoError(t, err)
+			
+			// Decode using typed array function directly
+			decoded, err := decodeTypedArray(encoded[1:])
+			require.NoError(t, err)
+			
+			assert.Equal(t, tt.expected, decoded)
+		})
+	}
+}
+
+func TestMarshalUnmarshal(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    any
+		expected any
+	}{
+		{"string", "hello", "hello"},
+		{"int", 42, int64(42)},
+		{"bool", true, true},
+		{"null", nil, nil},
+		{"float", 3.14, 3.14},
+		{"byte", byte(255), byte(255)},
+		{"blob", []byte{1, 2, 3}, []byte{1, 2, 3}},
+		{"object", map[string]any{"key": "value"}, map[string]any{"key": "value"}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Marshal
+			data, err := Marshal(tt.input)
+			require.NoError(t, err)
+			
+			// Unmarshal
+			var result any
+			err = Unmarshal(data, &result)
+			require.NoError(t, err)
+			
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
 func TestNumbersEncodingDecoding(t *testing.T) {
 	tests := []struct {
 		name  string

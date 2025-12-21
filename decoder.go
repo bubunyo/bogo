@@ -1,106 +1,364 @@
 package bogo
 
 import (
-	"encoding/binary"
 	"fmt"
-	"os"
+	"io"
+	"io/ioutil"
 )
 
-func Decode(data []byte) (any, error) {
-	version := data[0]
-	if version != Version {
-		fmt.Fprintln(os.Stderr, "unsupported bogo version")
-		os.Exit(1)
-	}
-
-	switch Type(data[1]) {
-	case TypeNull:
-		return nil, nil
-	case TypeString:
-		sizeLen := int(data[2])
-		return decodeString(data[3:], sizeLen)
-	case TypeBoolTrue:
-		return true, nil
-	case TypeBoolFalse:
-		return false, nil
-	case TypeInt:
-		sizeLen := int(data[2])
-		return decodeInt(data[3 : 3+sizeLen])
-	case TypeUint:
-		sizeLen := int(data[2])
-		return decodeUint(data[3 : 3+sizeLen])
-	case TypeFloat:
-		sizeLen := int(data[2])
-		return decodeFloat(data[3 : 3+sizeLen])
-	case TypeBlob:
-		blob, err := decodeBlob(data[2:])
-		if err != nil {
-			return nil, err
-		}
-		return blob, nil
-	case TypeTimestamp:
-		timestamp, err := decodeTimestamp(data[2:])
-		if err != nil {
-			return nil, err
-		}
-		return timestamp, nil
-	case TypeByte:
-		byteVal, err := decodeByte(data[2:])
-		if err != nil {
-			return nil, err
-		}
-		return byteVal, nil
-	default:
-		return nil, fmt.Errorf("type coder not supported, type=%d", data[1])
-	}
-
+// Decoder provides structured decoding with configurable options
+type Decoder struct {
+	// Configuration options
+	MaxDepth         int  // Maximum nesting depth for objects/arrays (0 = unlimited)
+	StrictMode       bool // Strict type checking and validation
+	AllowUnknownTypes bool // Allow unknown type IDs for forward compatibility
+	MaxObjectSize    int64 // Maximum size for objects/arrays (0 = unlimited)
+	ValidateUTF8     bool // Validate UTF-8 encoding in strings
+	
+	// Internal state
+	depth         int
+	bytesProcessed int64
 }
 
-func decodeString(data []byte, sizeLen int) (any, error) {
-	size, err := decodeUint(data[:sizeLen])
+// DecoderOption is a function type for configuring a Decoder
+type DecoderOption func(*Decoder)
+
+// NewConfigurableDecoder creates a new Decoder with optional configuration
+func NewConfigurableDecoder(options ...DecoderOption) *Decoder {
+	d := &Decoder{
+		MaxDepth:         100,   // Default max depth
+		StrictMode:       false,
+		AllowUnknownTypes: false,
+		MaxObjectSize:    1024 * 1024 * 10, // 10MB default limit
+		ValidateUTF8:     true,
+	}
+	
+	for _, option := range options {
+		option(d)
+	}
+	
+	return d
+}
+
+// Decoder option functions
+func WithDecoderMaxDepth(depth int) DecoderOption {
+	return func(d *Decoder) {
+		d.MaxDepth = depth
+	}
+}
+
+func WithDecoderStrictMode(strict bool) DecoderOption {
+	return func(d *Decoder) {
+		d.StrictMode = strict
+	}
+}
+
+func WithUnknownTypes(allow bool) DecoderOption {
+	return func(d *Decoder) {
+		d.AllowUnknownTypes = allow
+	}
+}
+
+func WithMaxObjectSize(size int64) DecoderOption {
+	return func(d *Decoder) {
+		d.MaxObjectSize = size
+	}
+}
+
+func WithUTF8Validation(validate bool) DecoderOption {
+	return func(d *Decoder) {
+		d.ValidateUTF8 = validate
+	}
+}
+
+// Decode decodes data using the configured decoder
+func (d *Decoder) Decode(data []byte) (any, error) {
+	d.depth = 0 // Reset depth counter
+	d.bytesProcessed = 0 // Reset bytes counter
+	
+	if len(data) < 2 {
+		return nil, fmt.Errorf("bogo decode error: insufficient data, need at least 2 bytes for version and type")
+	}
+	
+	// Validate version
+	version := data[0]
+	if version != Version {
+		if d.StrictMode {
+			return nil, fmt.Errorf("bogo decode error: unsupported version %d, expected version %d", version, Version)
+		}
+		// In non-strict mode, try to decode anyway (forward compatibility)
+	}
+	
+	return d.decode(data[1:]) // Skip version byte
+}
+
+// DecodeFrom decodes data from an io.Reader
+func (d *Decoder) DecodeFrom(r io.Reader) (any, error) {
+	data, err := ioutil.ReadAll(r)
+	if err != nil {
+		return nil, fmt.Errorf("bogo decode error: failed to read data: %w", err)
+	}
+	
+	return d.Decode(data)
+}
+
+// decode is the internal decoding function with validation
+func (d *Decoder) decode(data []byte) (any, error) {
+	if len(data) < 1 {
+		return nil, fmt.Errorf("bogo decode error: insufficient data for type")
+	}
+	
+	// Check max depth
+	if d.MaxDepth > 0 && d.depth > d.MaxDepth {
+		return nil, fmt.Errorf("bogo decode error: maximum nesting depth exceeded (%d)", d.MaxDepth)
+	}
+	
+	// Check size limits
+	if d.MaxObjectSize > 0 && d.bytesProcessed > d.MaxObjectSize {
+		return nil, fmt.Errorf("bogo decode error: maximum object size exceeded (%d bytes)", d.MaxObjectSize)
+	}
+	
+	typeVal := Type(data[0])
+	
+	// Track processed bytes
+	d.bytesProcessed += int64(len(data))
+	
+	switch typeVal {
+	case TypeNull:
+		return nil, nil
+		
+	case TypeBoolTrue:
+		return true, nil
+		
+	case TypeBoolFalse:
+		return false, nil
+		
+	case TypeString:
+		if len(data) < 2 {
+			return nil, fmt.Errorf("bogo decode error: insufficient data for string size")
+		}
+		sizeLen := int(data[1])
+		if len(data) < 2+sizeLen {
+			return nil, fmt.Errorf("bogo decode error: insufficient data for string size info")
+		}
+		
+		result, err := decodeString(data[2:], sizeLen)
+		if err != nil {
+			return nil, err
+		}
+		
+		// Validate UTF-8 if requested
+		if d.ValidateUTF8 {
+			str := result.(string)
+			if !isValidUTF8(str) {
+				return nil, fmt.Errorf("bogo decode error: invalid UTF-8 in string")
+			}
+		}
+		
+		return result, nil
+		
+	case TypeByte:
+		return d.decodeByteSafe(data[1:])
+		
+	case TypeInt:
+		if len(data) < 2 {
+			return nil, fmt.Errorf("bogo decode error: insufficient data for int size")
+		}
+		sizeLen := int(data[1])
+		if len(data) < 2+sizeLen {
+			return nil, fmt.Errorf("bogo decode error: insufficient data for int")
+		}
+		return decodeInt(data[2 : 2+sizeLen])
+		
+	case TypeUint:
+		if len(data) < 2 {
+			return nil, fmt.Errorf("bogo decode error: insufficient data for uint size")
+		}
+		sizeLen := int(data[1])
+		if len(data) < 2+sizeLen {
+			return nil, fmt.Errorf("bogo decode error: insufficient data for uint")
+		}
+		return decodeUint(data[2 : 2+sizeLen])
+		
+	case TypeFloat:
+		if len(data) < 2 {
+			return nil, fmt.Errorf("bogo decode error: insufficient data for float size")
+		}
+		sizeLen := int(data[1])
+		if len(data) < 2+sizeLen {
+			return nil, fmt.Errorf("bogo decode error: insufficient data for float")
+		}
+		return decodeFloat(data[2 : 2+sizeLen])
+		
+	case TypeBlob:
+		return d.decodeBlobSafe(data[1:])
+		
+	case TypeTimestamp:
+		return d.decodeTimestampSafe(data[1:])
+		
+	case TypeArray:
+		return d.decodeArrayWithDepth(data[1:])
+		
+	case TypeTypedArray:
+		return d.decodeTypedArraySafe(data[1:])
+		
+	case TypeObject:
+		return d.decodeObjectWithDepth(data[1:])
+		
+	default:
+		if d.AllowUnknownTypes {
+			// Return a special marker for unknown types
+			return UnknownType{TypeID: typeVal, Data: data}, nil
+		}
+		return nil, fmt.Errorf("bogo decode error: unsupported type %d", typeVal)
+	}
+}
+
+// Safe decoding functions with validation
+
+func (d *Decoder) decodeByteSafe(data []byte) (byte, error) {
+	if len(data) < 1 {
+		return 0, fmt.Errorf("bogo decode error: insufficient data for byte")
+	}
+	return data[0], nil
+}
+
+func (d *Decoder) decodeBlobSafe(data []byte) ([]byte, error) {
+	blob, err := decodeBlob(data)
 	if err != nil {
 		return nil, err
 	}
-	return string(data[sizeLen : sizeLen+int(size)]), nil
+	
+	// Check blob size limits
+	if d.MaxObjectSize > 0 && int64(len(blob)) > d.MaxObjectSize {
+		return nil, fmt.Errorf("bogo decode error: blob too large (%d bytes, max %d)", len(blob), d.MaxObjectSize)
+	}
+	
+	return blob, nil
 }
 
-func decodeBlob(data []byte) ([]byte, error) {
-	if len(data) == 0 {
-		return []byte{}, nil
-	}
+func (d *Decoder) decodeTimestampSafe(data []byte) (int64, error) {
+	return decodeTimestamp(data)
+}
+
+func (d *Decoder) decodeArrayWithDepth(data []byte) (any, error) {
+	d.depth++
+	defer func() { d.depth-- }()
 	
-	sizeLen := int(data[0])
-	if len(data) < sizeLen+1 {
-		return nil, fmt.Errorf("blob decode error: insufficient data for size")
-	}
+	// For now, use the original array decoding (without proper depth tracking)
+	// This is a placeholder implementation
+	return nil, fmt.Errorf("bogo decode error: array decoding with depth tracking not yet implemented")
+}
+
+func (d *Decoder) decodeTypedArraySafe(data []byte) (any, error) {
+	d.depth++
+	defer func() { d.depth-- }()
 	
-	size, err := decodeUint(data[1 : 1+sizeLen])
+	result, err := decodeTypedArray(data)
 	if err != nil {
-		return nil, fmt.Errorf("blob decode error: %w", err)
+		return nil, err
 	}
 	
-	dataStart := 1 + sizeLen
-	dataEnd := dataStart + int(size)
-	if len(data) < dataEnd {
-		return nil, fmt.Errorf("blob decode error: insufficient data for blob content")
-	}
-	
-	return data[dataStart:dataEnd], nil
+	// Additional validation for typed arrays if needed
+	return result, nil
 }
 
-func decodeTimestamp(data []byte) (int64, error) {
-	if len(data) < 8 {
-		return 0, fmt.Errorf("timestamp decode error: insufficient data, need 8 bytes, got %d", len(data))
+func (d *Decoder) decodeObjectWithDepth(data []byte) (any, error) {
+	d.depth++
+	defer func() { d.depth-- }()
+	
+	obj, err := decodeObject(data)
+	if err != nil {
+		return nil, err
 	}
 	
-	timestamp := int64(binary.LittleEndian.Uint64(data[:8]))
-	return timestamp, nil
+	// Validate object keys if in strict mode
+	if d.StrictMode && d.ValidateUTF8 {
+		for key := range obj {
+			if !isValidUTF8(key) {
+				return nil, fmt.Errorf("bogo decode error: invalid UTF-8 in object key")
+			}
+		}
+	}
+	
+	return obj, nil
 }
 
-func decodeByte(data []byte) (byte, error) {
-	if len(data) < 1 {
-		return 0, fmt.Errorf("byte decode error: insufficient data, need 1 byte, got %d", len(data))
+// UnknownType represents a type that couldn't be decoded but was allowed
+type UnknownType struct {
+	TypeID Type
+	Data   []byte
+}
+
+func (ut UnknownType) String() string {
+	return fmt.Sprintf("UnknownType{TypeID: %d, DataLen: %d}", ut.TypeID, len(ut.Data))
+}
+
+// DecodingStats provides statistics about decoding operations
+type DecodingStats struct {
+	BytesDecoded  int64
+	MaxDepthUsed  int
+	TypesDecoded  map[Type]int
+	ErrorsCount   int64
+	UnknownTypes  int64
+}
+
+// DecoderStatsCollector is a decoder that collects statistics
+type DecoderStatsCollector struct {
+	*Decoder
+	Stats DecodingStats
+}
+
+// NewDecoderStatsCollector creates a decoder that collects decoding statistics
+func NewDecoderStatsCollector(options ...DecoderOption) *DecoderStatsCollector {
+	return &DecoderStatsCollector{
+		Decoder: NewConfigurableDecoder(options...),
+		Stats: DecodingStats{
+			TypesDecoded: make(map[Type]int),
+		},
+	}
+}
+
+// Decode wraps the parent Decode with statistics collection
+func (dsc *DecoderStatsCollector) Decode(data []byte) (any, error) {
+	result, err := dsc.Decoder.Decode(data)
+	if err != nil {
+		dsc.Stats.ErrorsCount++
+		return nil, err
 	}
 	
-	return data[0], nil
+	dsc.Stats.BytesDecoded += int64(len(data))
+	if dsc.Decoder.depth > dsc.Stats.MaxDepthUsed {
+		dsc.Stats.MaxDepthUsed = dsc.Decoder.depth
+	}
+	
+	// Count type usage and unknown types
+	if len(data) >= 2 {
+		typeVal := Type(data[1])
+		dsc.Stats.TypesDecoded[typeVal]++
+		
+		if _, isUnknown := result.(UnknownType); isUnknown {
+			dsc.Stats.UnknownTypes++
+		}
+	}
+	
+	return result, nil
+}
+
+// GetStats returns a copy of the current statistics
+func (dsc *DecoderStatsCollector) GetStats() DecodingStats {
+	stats := dsc.Stats
+	// Deep copy the map
+	stats.TypesDecoded = make(map[Type]int)
+	for k, v := range dsc.Stats.TypesDecoded {
+		stats.TypesDecoded[k] = v
+	}
+	return stats
+}
+
+// ResetStats resets all statistics
+func (dsc *DecoderStatsCollector) ResetStats() {
+	dsc.Stats = DecodingStats{
+		TypesDecoded: make(map[Type]int),
+	}
 }
