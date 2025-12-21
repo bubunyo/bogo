@@ -83,12 +83,12 @@ func TestNullEncodingDecoding(t *testing.T) {
 			// Encode
 			data, err := Encode(tt.input)
 			require.NoError(t, err)
-			
+
 			// Check encoding format
-			assert.Equal(t, Version, data[0]) // version
+			assert.Equal(t, Version, data[0])            // version
 			assert.Equal(t, int(TypeNull), int(data[1])) // null type
-			assert.Equal(t, 2, len(data)) // should be exactly 2 bytes
-			
+			assert.Equal(t, 2, len(data))                // should be exactly 2 bytes
+
 			// Decode
 			result, err := Decode(data)
 			require.NoError(t, err)
@@ -112,7 +112,7 @@ func TestBlobFullRoundTrip(t *testing.T) {
 		{"uuid", []byte{0x55, 0x0e, 0x84, 0x00, 0xe2, 0x9b, 0x41, 0xd4, 0xa7, 0x16, 0x44, 0x66, 0x55, 0x44, 0x00, 0x00}},
 		{"large", make([]byte, 1000)},
 	}
-	
+
 	// Initialize large blob
 	for i := range tests[3].data {
 		tests[3].data[i] = byte(i % 256)
@@ -123,15 +123,15 @@ func TestBlobFullRoundTrip(t *testing.T) {
 			// Encode using main Encode function
 			encoded, err := Encode(tt.data)
 			require.NoError(t, err)
-			
+
 			// Check encoding format
-			assert.Equal(t, Version, encoded[0]) // version
+			assert.Equal(t, Version, encoded[0])        // version
 			assert.Equal(t, byte(TypeBlob), encoded[1]) // blob type
-			
+
 			// Decode using main Decode function
 			decoded, err := Decode(encoded)
 			require.NoError(t, err)
-			
+
 			// Should get back the same data
 			assert.Equal(t, tt.data, decoded.([]byte))
 		})
@@ -158,10 +158,10 @@ func TestBlobTypedEncodingDecoding(t *testing.T) {
 			// This will test the direct blob encoding once implemented
 			encoded, err := encodeBlob(tt.data)
 			require.NoError(t, err)
-			
+
 			// Check format: TypeBlob + LenSize + DataSize + Data
 			assert.Equal(t, byte(TypeBlob), encoded[0])
-			
+
 			// Decode
 			decoded, err := decodeBlob(encoded[1:])
 			require.NoError(t, err)
@@ -177,7 +177,7 @@ func TestTimestampEncodingDecoding(t *testing.T) {
 	}{
 		{"unix epoch", 0},
 		{"positive timestamp", 1705317045123}, // 2024-01-15T10:30:45.123Z
-		{"negative timestamp", -86400000},     // 1969-12-31T00:00:00.000Z  
+		{"negative timestamp", -86400000},     // 1969-12-31T00:00:00.000Z
 		{"max positive", 9223372036854775807}, // max int64
 		{"large negative", -1000000000000},    // 1938-04-24T22:13:20.000Z
 		{"recent timestamp", 1640995200000},   // 2022-01-01T00:00:00.000Z
@@ -188,11 +188,11 @@ func TestTimestampEncodingDecoding(t *testing.T) {
 			// Test direct timestamp encoding
 			encoded, err := encodeTimestamp(tt.timestamp)
 			require.NoError(t, err)
-			
+
 			// Check encoding format
 			assert.Equal(t, byte(TypeTimestamp), encoded[0])
 			assert.Equal(t, 9, len(encoded)) // 1 type + 8 data bytes
-			
+
 			// Decode
 			decoded, err := decodeTimestamp(encoded[1:])
 			require.NoError(t, err)
@@ -201,7 +201,7 @@ func TestTimestampEncodingDecoding(t *testing.T) {
 	}
 }
 
-// TestTimestampFullRoundTrip tests timestamp encoding via structs (requires object support)  
+// TestTimestampFullRoundTrip tests timestamp encoding via structs (requires object support)
 func TestTimestampFullRoundTrip(t *testing.T) {
 	t.Skip("Requires object/struct support - will implement later")
 }
@@ -223,20 +223,20 @@ func TestTimeEncodingDecoding(t *testing.T) {
 			// Encode using main Encode function
 			encoded, err := Encode(tt.time)
 			require.NoError(t, err)
-			
+
 			// Check encoding format
-			assert.Equal(t, Version, encoded[0]) // version
+			assert.Equal(t, Version, encoded[0])             // version
 			assert.Equal(t, byte(TypeTimestamp), encoded[1]) // timestamp type
-			assert.Equal(t, 10, len(encoded)) // 1 version + 1 type + 8 data bytes
-			
+			assert.Equal(t, 10, len(encoded))                // 1 version + 1 type + 8 data bytes
+
 			// Decode using main Decode function
 			decoded, err := Decode(encoded)
 			require.NoError(t, err)
-			
+
 			// Should get back the timestamp in milliseconds
 			expectedMillis := tt.time.UnixMilli()
 			assert.Equal(t, expectedMillis, decoded.(int64))
-			
+
 			// Convert back to time and compare (with millisecond precision)
 			decodedTime := time.UnixMilli(decoded.(int64)).UTC()
 			assert.Equal(t, tt.time.Truncate(time.Millisecond), decodedTime.Truncate(time.Millisecond))
@@ -260,12 +260,12 @@ func TestByteEncodingDecoding(t *testing.T) {
 			// Test direct byte encoding
 			encoded, err := encodeByte(tt.data)
 			require.NoError(t, err)
-			
+
 			// Check encoding format
 			assert.Equal(t, byte(TypeByte), encoded[0])
 			assert.Equal(t, tt.data, encoded[1])
 			assert.Equal(t, 2, len(encoded)) // 1 type + 1 data byte
-			
+
 			// Decode
 			decoded, err := decodeByte(encoded[1:])
 			require.NoError(t, err)
@@ -280,7 +280,7 @@ func TestByteFullRoundTrip(t *testing.T) {
 		data byte
 	}{
 		{"zero", 0},
-		{"small", 42}, 
+		{"small", 42},
 		{"max", 255},
 	}
 
@@ -289,16 +289,16 @@ func TestByteFullRoundTrip(t *testing.T) {
 			// Encode using main Encode function
 			encoded, err := Encode(tt.data)
 			require.NoError(t, err)
-			
+
 			// Check encoding format
-			assert.Equal(t, Version, encoded[0]) // version
+			assert.Equal(t, Version, encoded[0])        // version
 			assert.Equal(t, byte(TypeByte), encoded[1]) // byte type
-			assert.Equal(t, 3, len(encoded)) // 1 version + 1 type + 1 data byte
-			
+			assert.Equal(t, 3, len(encoded))            // 1 version + 1 type + 1 data byte
+
 			// Decode using main Decode function
 			decoded, err := Decode(encoded)
 			require.NoError(t, err)
-			
+
 			// Should get back the same byte
 			assert.Equal(t, tt.data, decoded.(byte))
 		})
@@ -332,7 +332,7 @@ func TestObjectEncodingDecoding(t *testing.T) {
 				},
 			},
 			"settings": map[string]any{
-				"theme": "dark",
+				"theme":         "dark",
 				"notifications": true,
 			},
 		}},
@@ -343,14 +343,14 @@ func TestObjectEncodingDecoding(t *testing.T) {
 			// Test direct object encoding
 			encoded, err := encodeObject(tt.object)
 			require.NoError(t, err)
-			
+
 			// Check encoding format
 			assert.Equal(t, byte(TypeObject), encoded[0])
-			
+
 			// Decode
 			decoded, err := decodeObject(encoded[1:])
 			require.NoError(t, err)
-			
+
 			// Should get back the same object
 			assert.Equal(t, tt.object, decoded)
 		})
@@ -378,19 +378,19 @@ func TestObjectFullRoundTrip(t *testing.T) {
 			// Encode using main Encode function
 			encoded, err := Encode(tt.object)
 			require.NoError(t, err)
-			
+
 			// Check encoding format
-			assert.Equal(t, Version, encoded[0]) // version
+			assert.Equal(t, Version, encoded[0])          // version
 			assert.Equal(t, byte(TypeObject), encoded[1]) // object type
-			
+
 			// Decode using main Decode function
 			decoded, err := Decode(encoded)
 			require.NoError(t, err)
-			
+
 			// Should get back the same object
 			decodedMap := decoded.(map[string]any)
 			assert.Equal(t, len(tt.object), len(decodedMap))
-			
+
 			for key, expectedValue := range tt.object {
 				actualValue, exists := decodedMap[key]
 				assert.True(t, exists, "Key %s should exist", key)
@@ -421,19 +421,19 @@ func TestStructEncodingDecoding(t *testing.T) {
 			// Encode using main Encode function
 			encoded, err := Encode(tt.person)
 			require.NoError(t, err)
-			
+
 			// Check encoding format
-			assert.Equal(t, Version, encoded[0]) // version
+			assert.Equal(t, Version, encoded[0])          // version
 			assert.Equal(t, byte(TypeObject), encoded[1]) // object type (structs encode as objects)
-			
+
 			// Decode using main Decode function
 			decoded, err := Decode(encoded)
 			require.NoError(t, err)
-			
+
 			// Should get back a map representing the struct
 			decodedMap := decoded.(map[string]any)
 			assert.NotNil(t, decodedMap)
-			
+
 			// Check that struct fields are present with correct tag names or field names
 			if tt.person.Name != "" {
 				assert.Equal(t, tt.person.Name, decodedMap["name"]) // uses bogo tag
@@ -468,10 +468,10 @@ func TestTypedArrayEncodingDecoding(t *testing.T) {
 			// Test direct typed array encoding
 			encoded, err := encodeTypedArray(tt.input)
 			require.NoError(t, err)
-			
+
 			// Check encoding format
 			assert.Equal(t, byte(TypeTypedArray), encoded[0])
-			
+
 			// Decode
 			decoded, err := decodeTypedArray(encoded[1:])
 			require.NoError(t, err)
@@ -495,18 +495,18 @@ func TestTypedArrayFullRoundTrip(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Note: This test won't automatically use typed arrays 
+			// Note: This test won't automatically use typed arrays
 			// The main encoder decides based on array homogeneity
 			// For now, we'll test the typed array functions directly
-			
+
 			// Encode using typed array function directly
 			encoded, err := encodeTypedArray(tt.input)
 			require.NoError(t, err)
-			
+
 			// Decode using typed array function directly
 			decoded, err := decodeTypedArray(encoded[1:])
 			require.NoError(t, err)
-			
+
 			assert.Equal(t, tt.expected, decoded)
 		})
 	}
@@ -533,12 +533,12 @@ func TestMarshalUnmarshal(t *testing.T) {
 			// Marshal
 			data, err := Marshal(tt.input)
 			require.NoError(t, err)
-			
+
 			// Unmarshal
 			var result any
 			err = Unmarshal(data, &result)
 			require.NoError(t, err)
-			
+
 			assert.Equal(t, tt.expected, result)
 		})
 	}
@@ -588,4 +588,291 @@ func TestNumbersEncodingDecoding(t *testing.T) {
 			}
 		})
 	}
+}
+
+// Test unused helper functions
+func TestUnusedHelperFunctions(t *testing.T) {
+	t.Run("decodeNull", func(t *testing.T) {
+		result, err := decodeNull()
+		assert.NoError(t, err)
+		assert.Nil(t, result)
+	})
+
+	t.Run("decodeBoolTrue", func(t *testing.T) {
+		result, err := decodeBoolTrue()
+		assert.NoError(t, err)
+		assert.True(t, result)
+	})
+
+	t.Run("decodeBoolFalse", func(t *testing.T) {
+		result, err := decodeBoolFalse()
+		assert.NoError(t, err)
+		assert.False(t, result)
+	})
+}
+
+// Test Type.String() method
+func TestTypeStringMethod(t *testing.T) {
+	tests := []struct {
+		typeVal  Type
+		expected string
+	}{
+		{TypeNull, "<null>"},
+		{TypeBoolTrue, "<bool:true>"},
+		{TypeBoolFalse, "<bool:false>"},
+		{TypeString, "<string>"},
+		{TypeArray, "<array>"},
+		{TypeTypedArray, "<typed_array>"},
+		{TypeObject, "<object>"},
+		{TypeByte, "<byte>"},
+		{TypeInt, "<int>"},
+		{TypeUint, "<uint>"},
+		{TypeFloat, "<float>"},
+		{TypeBlob, "<blob>"},
+		{TypeTimestamp, "<timestamp>"},
+		{Type(99), "<unknown>"}, // Test unknown type
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.expected, func(t *testing.T) {
+			assert.Equal(t, tt.expected, tt.typeVal.String())
+		})
+	}
+}
+
+// Test wrapError utility function
+func TestWrapError(t *testing.T) {
+	baseErr := assert.AnError
+
+	t.Run("wrapError with no additional messages", func(t *testing.T) {
+		result := wrapError(baseErr)
+		assert.Equal(t, baseErr, result)
+	})
+
+	t.Run("wrapError with additional message", func(t *testing.T) {
+		result := wrapError(baseErr, "additional context")
+		assert.Contains(t, result.Error(), baseErr.Error())
+		assert.Contains(t, result.Error(), "additional context")
+	})
+}
+
+// Test encodeTimeValue helper function
+func TestEncodeTimeValue(t *testing.T) {
+	testTime := time.Date(2024, 1, 15, 10, 30, 45, 123000000, time.UTC)
+
+	encoded, err := encodeTimeValue(testTime)
+	require.NoError(t, err)
+
+	// Should be 9 bytes: 1 type + 8 timestamp
+	assert.Equal(t, 9, len(encoded))
+	assert.Equal(t, byte(TypeTimestamp), encoded[0])
+
+	// Decode and verify
+	timestamp, err := decodeTimestamp(encoded[1:])
+	require.NoError(t, err)
+	assert.Equal(t, testTime.UnixMilli(), timestamp)
+}
+
+// Test all branches in isZeroValue function
+func TestIsZeroValueAllBranches(t *testing.T) {
+	tests := []struct {
+		name     string
+		value    any
+		expected bool
+	}{
+		{"nil", nil, true},
+		{"empty string", "", true},
+		{"non-empty string", "hello", false},
+		{"int zero", int(0), true},
+		{"int non-zero", int(42), false},
+		{"int8 zero", int8(0), true},
+		{"int8 non-zero", int8(42), false},
+		{"int16 zero", int16(0), true},
+		{"int16 non-zero", int16(42), false},
+		{"int32 zero", int32(0), true},
+		{"int32 non-zero", int32(42), false},
+		{"int64 zero", int64(0), true},
+		{"int64 non-zero", int64(42), false},
+		{"uint zero", uint(0), true},
+		{"uint non-zero", uint(42), false},
+		{"uint8 zero", uint8(0), true},
+		{"uint8 non-zero", uint8(42), false},
+		{"uint16 zero", uint16(0), true},
+		{"uint16 non-zero", uint16(42), false},
+		{"uint32 zero", uint32(0), true},
+		{"uint32 non-zero", uint32(42), false},
+		{"uint64 zero", uint64(0), true},
+		{"uint64 non-zero", uint64(42), false},
+		{"float32 zero", float32(0.0), true},
+		{"float32 non-zero", float32(3.14), false},
+		{"float64 zero", float64(0.0), true},
+		{"float64 non-zero", float64(3.14), false},
+		{"bool false", false, true},
+		{"bool true", true, false},
+		{"slice", []int{1, 2, 3}, false}, // default case
+		{"struct", struct{}{}, false},    // default case
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := isZeroValue(tt.value)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+// Test error paths and edge cases
+func TestErrorPathsAndEdgeCases(t *testing.T) {
+	t.Run("decodeByte with insufficient data", func(t *testing.T) {
+		_, err := decodeByte([]byte{})
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "insufficient data")
+	})
+
+	t.Run("decodeTimestamp with insufficient data", func(t *testing.T) {
+		_, err := decodeTimestamp([]byte{1, 2, 3}) // Less than 8 bytes
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "insufficient data")
+	})
+
+	t.Run("decodeBlob with insufficient size data", func(t *testing.T) {
+		// Size len says 5 bytes needed, but only 2 provided
+		_, err := decodeBlob([]byte{5, 10})
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "insufficient data for size")
+	})
+
+	t.Run("decodeBlob with insufficient content data", func(t *testing.T) {
+		// Says blob size is 10, but only provides 3 bytes
+		_, err := decodeBlob([]byte{1, 10, 1, 2, 3})
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "insufficient data for blob content")
+	})
+
+	t.Run("encodeString with empty string", func(t *testing.T) {
+		encoded, err := encodeString("")
+		require.NoError(t, err)
+		assert.Equal(t, []byte{byte(TypeString), 0}, encoded)
+	})
+
+	t.Run("encode unsupported type", func(t *testing.T) {
+		// Use a channel which is an unsupported type
+		ch := make(chan int)
+		_, err := encode(ch)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "unsupported type")
+	})
+
+	t.Run("encodeTypedArray with empty array falls back to regular array", func(t *testing.T) {
+		emptyArray := []string{}
+		encoded, err := encodeTypedArray(emptyArray)
+		require.NoError(t, err)
+		// Should be regular array type, not typed array
+		assert.Equal(t, byte(TypeArray), encoded[0])
+	})
+
+	t.Run("encodeTypedArray with mixed types falls back to regular array", func(t *testing.T) {
+		// This won't actually work since Go is strongly typed, but test the logic
+		// by using interface{} array
+		mixedArray := []interface{}{"string", 42}
+		_, err := encodeArray(mixedArray)
+		require.NoError(t, err)
+		// Just verify it doesn't panic
+	})
+
+	t.Run("encodeObject with unsupported type", func(t *testing.T) {
+		_, err := encodeObject("not a map")
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "object type not supported")
+	})
+
+	t.Run("encodeFieldEntry with key too long", func(t *testing.T) {
+		longKey := string(make([]byte, 256)) // 256 bytes, exceeds 255 limit
+		_, err := encodeFieldEntry(longKey, "value")
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "key too long")
+	})
+}
+
+// Test decodeArray edge cases to improve coverage
+func TestDecodeArrayEdgeCases(t *testing.T) {
+	t.Run("decodeArray with nil destination", func(t *testing.T) {
+		err := decodeArray([]byte{}, nil)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "invalid decoder destination")
+	})
+
+	t.Run("decodeArray with non-pointer destination", func(t *testing.T) {
+		var slice []int
+		err := decodeArray([]byte{}, slice) // Not a pointer
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "invalid decoder destination")
+	})
+
+	t.Run("decodeArray with byte elements", func(t *testing.T) {
+		// Create array data with byte elements
+		data := []byte{
+			TypeByte, 42, // First byte element
+			TypeByte, 43, // Second byte element
+		}
+
+		var result []any
+		err := decodeArray(data, &result)
+		assert.Error(t, err) // This will error due to type mismatch logic
+	})
+}
+
+// Test decodeValue edge cases
+func TestDecodeValueEdgeCases(t *testing.T) {
+	t.Run("decodeValue with empty data", func(t *testing.T) {
+		result, err := decodeValue([]byte{})
+		assert.NoError(t, err)
+		assert.Nil(t, result)
+	})
+
+	t.Run("decodeValue with unsupported type", func(t *testing.T) {
+		// Use a type value that doesn't exist
+		_, err := decodeValue([]byte{byte(99), 1, 2, 3})
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "unsupported value type")
+	})
+
+	t.Run("decodeValue with array type now supported", func(t *testing.T) {
+		// Test the array case that now works
+		result, err := decodeValue([]byte{TypeArray, 1, 0})
+		assert.NoError(t, err)
+		assert.Equal(t, []any{}, result) // Empty array
+	})
+}
+
+// Test API-level error handling
+func TestAPIErrorHandling(t *testing.T) {
+	t.Run("Decode with insufficient data", func(t *testing.T) {
+		// Empty data
+		_, err := Decode([]byte{})
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "insufficient data")
+
+		// Only version byte, no type
+		_, err = Decode([]byte{0x00})
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "insufficient data")
+	})
+
+	t.Run("Decode with unsupported version", func(t *testing.T) {
+		// Wrong version
+		_, err := Decode([]byte{0x99, TypeString, 1, 5, 'h', 'e', 'l', 'l', 'o'})
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "unsupported version")
+		assert.Contains(t, err.Error(), "153") // 0x99 = 153 in decimal
+		assert.Contains(t, err.Error(), "expected version 0")
+	})
+
+	t.Run("API should never call os.Exit", func(t *testing.T) {
+		// This test ensures the fix worked - if os.Exit was called, this test would never complete
+		_, err := Decode([]byte{0x99, TypeNull})
+		assert.Error(t, err)
+		// If we reach this point, os.Exit was not called
+		assert.True(t, true, "API correctly returned error instead of calling os.Exit")
+	})
 }

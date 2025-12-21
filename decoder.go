@@ -3,20 +3,19 @@ package bogo
 import (
 	"fmt"
 	"io"
-	"io/ioutil"
 )
 
 // Decoder provides structured decoding with configurable options
 type Decoder struct {
 	// Configuration options
-	MaxDepth         int  // Maximum nesting depth for objects/arrays (0 = unlimited)
-	StrictMode       bool // Strict type checking and validation
-	AllowUnknownTypes bool // Allow unknown type IDs for forward compatibility
-	MaxObjectSize    int64 // Maximum size for objects/arrays (0 = unlimited)
-	ValidateUTF8     bool // Validate UTF-8 encoding in strings
-	
+	MaxDepth          int   // Maximum nesting depth for objects/arrays (0 = unlimited)
+	StrictMode        bool  // Strict type checking and validation
+	AllowUnknownTypes bool  // Allow unknown type IDs for forward compatibility
+	MaxObjectSize     int64 // Maximum size for objects/arrays (0 = unlimited)
+	ValidateUTF8      bool  // Validate UTF-8 encoding in strings
+
 	// Internal state
-	depth         int
+	depth          int
 	bytesProcessed int64
 }
 
@@ -26,17 +25,17 @@ type DecoderOption func(*Decoder)
 // NewConfigurableDecoder creates a new Decoder with optional configuration
 func NewConfigurableDecoder(options ...DecoderOption) *Decoder {
 	d := &Decoder{
-		MaxDepth:         100,   // Default max depth
-		StrictMode:       false,
+		MaxDepth:          100, // Default max depth
+		StrictMode:        false,
 		AllowUnknownTypes: false,
-		MaxObjectSize:    1024 * 1024 * 10, // 10MB default limit
-		ValidateUTF8:     true,
+		MaxObjectSize:     1024 * 1024 * 10, // 10MB default limit
+		ValidateUTF8:      true,
 	}
-	
+
 	for _, option := range options {
 		option(d)
 	}
-	
+
 	return d
 }
 
@@ -73,13 +72,13 @@ func WithUTF8Validation(validate bool) DecoderOption {
 
 // Decode decodes data using the configured decoder
 func (d *Decoder) Decode(data []byte) (any, error) {
-	d.depth = 0 // Reset depth counter
+	d.depth = 0          // Reset depth counter
 	d.bytesProcessed = 0 // Reset bytes counter
-	
+
 	if len(data) < 2 {
 		return nil, fmt.Errorf("bogo decode error: insufficient data, need at least 2 bytes for version and type")
 	}
-	
+
 	// Validate version
 	version := data[0]
 	if version != Version {
@@ -88,17 +87,17 @@ func (d *Decoder) Decode(data []byte) (any, error) {
 		}
 		// In non-strict mode, try to decode anyway (forward compatibility)
 	}
-	
+
 	return d.decode(data[1:]) // Skip version byte
 }
 
 // DecodeFrom decodes data from an io.Reader
 func (d *Decoder) DecodeFrom(r io.Reader) (any, error) {
-	data, err := ioutil.ReadAll(r)
+	data, err := io.ReadAll(r)
 	if err != nil {
 		return nil, fmt.Errorf("bogo decode error: failed to read data: %w", err)
 	}
-	
+
 	return d.Decode(data)
 }
 
@@ -107,32 +106,32 @@ func (d *Decoder) decode(data []byte) (any, error) {
 	if len(data) < 1 {
 		return nil, fmt.Errorf("bogo decode error: insufficient data for type")
 	}
-	
+
 	// Check max depth
 	if d.MaxDepth > 0 && d.depth > d.MaxDepth {
 		return nil, fmt.Errorf("bogo decode error: maximum nesting depth exceeded (%d)", d.MaxDepth)
 	}
-	
+
 	// Check size limits
 	if d.MaxObjectSize > 0 && d.bytesProcessed > d.MaxObjectSize {
 		return nil, fmt.Errorf("bogo decode error: maximum object size exceeded (%d bytes)", d.MaxObjectSize)
 	}
-	
+
 	typeVal := Type(data[0])
-	
+
 	// Track processed bytes
 	d.bytesProcessed += int64(len(data))
-	
+
 	switch typeVal {
 	case TypeNull:
 		return nil, nil
-		
+
 	case TypeBoolTrue:
 		return true, nil
-		
+
 	case TypeBoolFalse:
 		return false, nil
-		
+
 	case TypeString:
 		if len(data) < 2 {
 			return nil, fmt.Errorf("bogo decode error: insufficient data for string size")
@@ -141,12 +140,12 @@ func (d *Decoder) decode(data []byte) (any, error) {
 		if len(data) < 2+sizeLen {
 			return nil, fmt.Errorf("bogo decode error: insufficient data for string size info")
 		}
-		
+
 		result, err := decodeString(data[2:], sizeLen)
 		if err != nil {
 			return nil, err
 		}
-		
+
 		// Validate UTF-8 if requested
 		if d.ValidateUTF8 {
 			str := result.(string)
@@ -154,12 +153,12 @@ func (d *Decoder) decode(data []byte) (any, error) {
 				return nil, fmt.Errorf("bogo decode error: invalid UTF-8 in string")
 			}
 		}
-		
+
 		return result, nil
-		
+
 	case TypeByte:
 		return d.decodeByteSafe(data[1:])
-		
+
 	case TypeInt:
 		if len(data) < 2 {
 			return nil, fmt.Errorf("bogo decode error: insufficient data for int size")
@@ -169,7 +168,7 @@ func (d *Decoder) decode(data []byte) (any, error) {
 			return nil, fmt.Errorf("bogo decode error: insufficient data for int")
 		}
 		return decodeInt(data[2 : 2+sizeLen])
-		
+
 	case TypeUint:
 		if len(data) < 2 {
 			return nil, fmt.Errorf("bogo decode error: insufficient data for uint size")
@@ -179,7 +178,7 @@ func (d *Decoder) decode(data []byte) (any, error) {
 			return nil, fmt.Errorf("bogo decode error: insufficient data for uint")
 		}
 		return decodeUint(data[2 : 2+sizeLen])
-		
+
 	case TypeFloat:
 		if len(data) < 2 {
 			return nil, fmt.Errorf("bogo decode error: insufficient data for float size")
@@ -189,22 +188,22 @@ func (d *Decoder) decode(data []byte) (any, error) {
 			return nil, fmt.Errorf("bogo decode error: insufficient data for float")
 		}
 		return decodeFloat(data[2 : 2+sizeLen])
-		
+
 	case TypeBlob:
 		return d.decodeBlobSafe(data[1:])
-		
+
 	case TypeTimestamp:
 		return d.decodeTimestampSafe(data[1:])
-		
+
 	case TypeArray:
 		return d.decodeArrayWithDepth(data[1:])
-		
+
 	case TypeTypedArray:
 		return d.decodeTypedArraySafe(data[1:])
-		
+
 	case TypeObject:
 		return d.decodeObjectWithDepth(data[1:])
-		
+
 	default:
 		if d.AllowUnknownTypes {
 			// Return a special marker for unknown types
@@ -228,12 +227,12 @@ func (d *Decoder) decodeBlobSafe(data []byte) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// Check blob size limits
 	if d.MaxObjectSize > 0 && int64(len(blob)) > d.MaxObjectSize {
 		return nil, fmt.Errorf("bogo decode error: blob too large (%d bytes, max %d)", len(blob), d.MaxObjectSize)
 	}
-	
+
 	return blob, nil
 }
 
@@ -244,7 +243,7 @@ func (d *Decoder) decodeTimestampSafe(data []byte) (int64, error) {
 func (d *Decoder) decodeArrayWithDepth(data []byte) (any, error) {
 	d.depth++
 	defer func() { d.depth-- }()
-	
+
 	// For now, use the original array decoding (without proper depth tracking)
 	// This is a placeholder implementation
 	return nil, fmt.Errorf("bogo decode error: array decoding with depth tracking not yet implemented")
@@ -253,12 +252,12 @@ func (d *Decoder) decodeArrayWithDepth(data []byte) (any, error) {
 func (d *Decoder) decodeTypedArraySafe(data []byte) (any, error) {
 	d.depth++
 	defer func() { d.depth-- }()
-	
+
 	result, err := decodeTypedArray(data)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// Additional validation for typed arrays if needed
 	return result, nil
 }
@@ -266,12 +265,12 @@ func (d *Decoder) decodeTypedArraySafe(data []byte) (any, error) {
 func (d *Decoder) decodeObjectWithDepth(data []byte) (any, error) {
 	d.depth++
 	defer func() { d.depth-- }()
-	
+
 	obj, err := decodeObject(data)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// Validate object keys if in strict mode
 	if d.StrictMode && d.ValidateUTF8 {
 		for key := range obj {
@@ -280,7 +279,7 @@ func (d *Decoder) decodeObjectWithDepth(data []byte) (any, error) {
 			}
 		}
 	}
-	
+
 	return obj, nil
 }
 
@@ -296,11 +295,11 @@ func (ut UnknownType) String() string {
 
 // DecodingStats provides statistics about decoding operations
 type DecodingStats struct {
-	BytesDecoded  int64
-	MaxDepthUsed  int
-	TypesDecoded  map[Type]int
-	ErrorsCount   int64
-	UnknownTypes  int64
+	BytesDecoded int64
+	MaxDepthUsed int
+	TypesDecoded map[Type]int
+	ErrorsCount  int64
+	UnknownTypes int64
 }
 
 // DecoderStatsCollector is a decoder that collects statistics
@@ -326,22 +325,22 @@ func (dsc *DecoderStatsCollector) Decode(data []byte) (any, error) {
 		dsc.Stats.ErrorsCount++
 		return nil, err
 	}
-	
+
 	dsc.Stats.BytesDecoded += int64(len(data))
 	if dsc.Decoder.depth > dsc.Stats.MaxDepthUsed {
 		dsc.Stats.MaxDepthUsed = dsc.Decoder.depth
 	}
-	
+
 	// Count type usage and unknown types
 	if len(data) >= 2 {
 		typeVal := Type(data[1])
 		dsc.Stats.TypesDecoded[typeVal]++
-		
+
 		if _, isUnknown := result.(UnknownType); isUnknown {
 			dsc.Stats.UnknownTypes++
 		}
 	}
-	
+
 	return result, nil
 }
 
@@ -362,3 +361,4 @@ func (dsc *DecoderStatsCollector) ResetStats() {
 		TypesDecoded: make(map[Type]int),
 	}
 }
+
