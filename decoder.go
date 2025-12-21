@@ -8,11 +8,12 @@ import (
 // Decoder provides structured decoding with configurable options
 type Decoder struct {
 	// Configuration options
-	MaxDepth          int   // Maximum nesting depth for objects/arrays (0 = unlimited)
-	StrictMode        bool  // Strict type checking and validation
-	AllowUnknownTypes bool  // Allow unknown type IDs for forward compatibility
-	MaxObjectSize     int64 // Maximum size for objects/arrays (0 = unlimited)
-	ValidateUTF8      bool  // Validate UTF-8 encoding in strings
+	MaxDepth          int    // Maximum nesting depth for objects/arrays (0 = unlimited)
+	StrictMode        bool   // Strict type checking and validation
+	AllowUnknownTypes bool   // Allow unknown type IDs for forward compatibility
+	MaxObjectSize     int64  // Maximum size for objects/arrays (0 = unlimited)
+	ValidateUTF8      bool   // Validate UTF-8 encoding in strings
+	TagName           string // Struct tag name to use (default: "json" for compatibility)
 
 	// Internal state
 	depth          int
@@ -25,11 +26,12 @@ type DecoderOption func(*Decoder)
 // NewConfigurableDecoder creates a new Decoder with optional configuration
 func NewConfigurableDecoder(options ...DecoderOption) *Decoder {
 	d := &Decoder{
-		MaxDepth:          100, // Default max depth
+		MaxDepth:          100,                 // Default max depth
 		StrictMode:        false,
 		AllowUnknownTypes: false,
-		MaxObjectSize:     1024 * 1024 * 10, // 10MB default limit
+		MaxObjectSize:     1024 * 1024 * 10,   // 10MB default limit
 		ValidateUTF8:      true,
+		TagName:           "json",              // Default to json tag for compatibility
 	}
 
 	for _, option := range options {
@@ -67,6 +69,12 @@ func WithMaxObjectSize(size int64) DecoderOption {
 func WithUTF8Validation(validate bool) DecoderOption {
 	return func(d *Decoder) {
 		d.ValidateUTF8 = validate
+	}
+}
+
+func WithDecoderStructTag(tagName string) DecoderOption {
+	return func(d *Decoder) {
+		d.TagName = tagName
 	}
 }
 

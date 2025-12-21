@@ -1,17 +1,21 @@
 package bogo
 
 import (
+	"bytes"
 	"fmt"
 	"io"
+	"reflect"
+	"time"
 )
 
 // Encoder provides structured encoding with configurable options
 type Encoder struct {
 	// Configuration options
-	MaxDepth        int  // Maximum nesting depth for objects/arrays (0 = unlimited)
-	StrictMode      bool // Strict type checking and validation
-	CompactArrays   bool // Use typed arrays when beneficial
-	ValidateStrings bool // Validate UTF-8 encoding in strings
+	MaxDepth        int    // Maximum nesting depth for objects/arrays (0 = unlimited)
+	StrictMode      bool   // Strict type checking and validation
+	CompactArrays   bool   // Use typed arrays when beneficial
+	ValidateStrings bool   // Validate UTF-8 encoding in strings
+	TagName         string // Struct tag name to use (default: "json" for compatibility)
 	
 	// Internal state
 	depth int
@@ -23,10 +27,11 @@ type EncoderOption func(*Encoder)
 // NewConfigurableEncoder creates a new Encoder with optional configuration
 func NewConfigurableEncoder(options ...EncoderOption) *Encoder {
 	e := &Encoder{
-		MaxDepth:        100, // Default max depth
+		MaxDepth:        100,    // Default max depth
 		StrictMode:      false,
 		CompactArrays:   true,
 		ValidateStrings: true,
+		TagName:         "json", // Default to json tag for compatibility
 	}
 	
 	for _, option := range options {
@@ -58,6 +63,12 @@ func WithCompactArrays(compact bool) EncoderOption {
 func WithStringValidation(validate bool) EncoderOption {
 	return func(e *Encoder) {
 		e.ValidateStrings = validate
+	}
+}
+
+func WithStructTag(tagName string) EncoderOption {
+	return func(e *Encoder) {
+		e.TagName = tagName
 	}
 }
 
@@ -113,6 +124,9 @@ func (e *Encoder) encode(v any) ([]byte, error) {
 	case []byte:
 		return encodeBlob(val)
 		
+	case time.Time:
+		return encodeTimestamp(val.UnixMilli())
+		
 	case []string:
 		if e.CompactArrays {
 			return e.encodeTypedArrayWithDepth(val)
@@ -147,8 +161,8 @@ func (e *Encoder) encode(v any) ([]byte, error) {
 		return e.encodeObjectWithDepth(val)
 		
 	default:
-		// Use reflection for complex types
-		return e.encodeGeneric(v)
+		// Use reflection for complex types (including structs)
+		return e.encodeReflected(v)
 	}
 }
 
@@ -190,17 +204,209 @@ func (e *Encoder) encodeObjectWithDepth(v map[string]any) ([]byte, error) {
 		}
 	}
 	
-	// For now, we need to handle nested encoding manually for proper depth tracking
-	// This is a simplified version - a full implementation would recursively encode each value
-	return encodeObject(v)
+	// Encode the object with proper depth tracking
+	return e.encodeMapWithDepth(v)
 }
 
-// encodeGeneric handles generic types using reflection
-func (e *Encoder) encodeGeneric(v any) ([]byte, error) {
-	// For generic types, we need to track depth manually
-	// This is a simplified implementation - in practice you'd want to implement
-	// depth tracking for all reflection-based encoding
-	return encode(v)
+// encodeMapWithDepth encodes a map with proper depth tracking and using the encoder
+func (e *Encoder) encodeMapWithDepth(obj map[string]any) ([]byte, error) {
+	fieldsBuf := &bytes.Buffer{}
+	
+	// Encode each key-value pair as field entries
+	for key, value := range obj {
+		fieldEntry, err := e.encodeFieldEntryWithDepth(key, value)
+		if err != nil {
+			return nil, fmt.Errorf("bogo encode error: failed to encode field %s: %w", key, err)
+		}
+		fieldsBuf.Write(fieldEntry)
+	}
+	
+	fieldsData := fieldsBuf.Bytes()
+	fieldsSize := len(fieldsData)
+	
+	// Encode the total size of all fields
+	encodedSizeData, err := encodeUint(uint64(fieldsSize))
+	if err != nil {
+		return nil, fmt.Errorf("bogo encode error: failed to encode fields size: %w", err)
+	}
+	
+	// Build final object: TypeObject + LenSize + DataSize + FieldData
+	result := &bytes.Buffer{}
+	result.WriteByte(TypeObject)
+	result.Write(encodedSizeData[1:]) // remove type byte from size encoding
+	result.Write(fieldsData)
+	
+	return result.Bytes(), nil
+}
+
+// encodeFieldEntryWithDepth encodes a field entry using the encoder for depth tracking
+func (e *Encoder) encodeFieldEntryWithDepth(key string, value any) ([]byte, error) {
+	// Encode the value first to know its size using the encoder
+	encodedValue, err := e.encode(value)
+	if err != nil {
+		return nil, err
+	}
+	
+	keyBytes := []byte(key)
+	keyLen := len(keyBytes)
+	
+	if keyLen > 255 {
+		return nil, fmt.Errorf("key too long, maximum 255 bytes")
+	}
+	
+	// Calculate entry size: keyLen(1) + key + value
+	entrySize := 1 + keyLen + len(encodedValue)
+	
+	// Encode entry size
+	encodedEntrySize, err := encodeUint(uint64(entrySize))
+	if err != nil {
+		return nil, err
+	}
+	
+	// Build field entry: LenSize + EntrySize + KeyLength + Key + Value
+	entry := &bytes.Buffer{}
+	entry.Write(encodedEntrySize[1:]) // remove type byte
+	entry.WriteByte(byte(keyLen))
+	entry.Write(keyBytes)
+	entry.Write(encodedValue)
+	
+	return entry.Bytes(), nil
+}
+
+// encodeReflected handles reflection-based encoding for structs and other complex types
+func (e *Encoder) encodeReflected(v any) ([]byte, error) {
+	rv := reflect.ValueOf(v)
+	rt := reflect.TypeOf(v)
+	
+	// Handle pointers
+	for rv.Kind() == reflect.Ptr {
+		if rv.IsNil() {
+			return encodeNull(), nil
+		}
+		rv = rv.Elem()
+		rt = rt.Elem()
+	}
+	
+	switch rv.Kind() {
+	case reflect.Struct:
+		return e.encodeStruct(rv, rt)
+	case reflect.Slice, reflect.Array:
+		return e.encodeReflectedArray(rv)
+	case reflect.Map:
+		return e.encodeReflectedMap(rv)
+	case reflect.Interface:
+		// Handle interface{} by encoding the underlying value
+		if !rv.IsNil() {
+			return e.encode(rv.Interface())
+		}
+		return encodeNull(), nil
+	default:
+		// Fall back to basic type encoding for other types
+		return encode(v)
+	}
+}
+
+// encodeStruct converts a struct to a map[string]any and encodes it
+func (e *Encoder) encodeStruct(rv reflect.Value, rt reflect.Type) ([]byte, error) {
+	obj := make(map[string]any)
+	
+	for i := 0; i < rt.NumField(); i++ {
+		field := rt.Field(i)
+		fieldValue := rv.Field(i)
+		
+		// Skip unexported fields
+		if !field.IsExported() {
+			continue
+		}
+		
+		// Get field name from tag or use field name
+		fieldName := e.getFieldName(field)
+		
+		// Skip if tag indicates to omit the field
+		if fieldName == "-" {
+			continue
+		}
+		
+		// Skip zero values if omitempty is specified
+		if e.shouldOmitEmpty(field) && e.isZeroValue(fieldValue) {
+			continue
+		}
+		
+		// Recursively encode the field value
+		obj[fieldName] = fieldValue.Interface()
+	}
+	
+	return e.encodeObjectWithDepth(obj)
+}
+
+// getFieldName returns the field name to use based on struct tags
+func (e *Encoder) getFieldName(field reflect.StructField) string {
+	tag := field.Tag.Get(e.TagName)
+	if tag == "" {
+		return field.Name
+	}
+	
+	// Handle "fieldname" and "fieldname,omitempty" formats
+	if commaIdx := len(tag); commaIdx > 0 {
+		for i, c := range tag {
+			if c == ',' {
+				commaIdx = i
+				break
+			}
+		}
+		return tag[:commaIdx]
+	}
+	
+	return tag
+}
+
+// shouldOmitEmpty checks if the field has omitempty tag
+func (e *Encoder) shouldOmitEmpty(field reflect.StructField) bool {
+	tag := field.Tag.Get(e.TagName)
+	return len(tag) > 0 && (tag == "omitempty" || len(tag) > 10 && tag[len(tag)-10:] == ",omitempty")
+}
+
+// isZeroValue reports whether v is the zero value for its type
+func (e *Encoder) isZeroValue(v reflect.Value) bool {
+	switch v.Kind() {
+	case reflect.Array, reflect.Map, reflect.Slice, reflect.String:
+		return v.Len() == 0
+	case reflect.Bool:
+		return !v.Bool()
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		return v.Int() == 0
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
+		return v.Uint() == 0
+	case reflect.Float32, reflect.Float64:
+		return v.Float() == 0
+	case reflect.Interface, reflect.Ptr:
+		return v.IsNil()
+	}
+	return false
+}
+
+// encodeReflectedArray handles slice/array encoding via reflection
+func (e *Encoder) encodeReflectedArray(rv reflect.Value) ([]byte, error) {
+	length := rv.Len()
+	arr := make([]any, length)
+	
+	for i := 0; i < length; i++ {
+		arr[i] = rv.Index(i).Interface()
+	}
+	
+	return e.encodeArrayWithDepth(arr)
+}
+
+// encodeReflectedMap handles map encoding via reflection
+func (e *Encoder) encodeReflectedMap(rv reflect.Value) ([]byte, error) {
+	obj := make(map[string]any)
+	
+	for _, key := range rv.MapKeys() {
+		keyStr := fmt.Sprintf("%v", key.Interface())
+		obj[keyStr] = rv.MapIndex(key).Interface()
+	}
+	
+	return e.encodeObjectWithDepth(obj)
 }
 
 // isValidUTF8 checks if a string is valid UTF-8
