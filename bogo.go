@@ -442,15 +442,6 @@ func assignValueToField(value any, fieldValue reflect.Value, tagName string) err
 	return fmt.Errorf("cannot assign %T to %s", value, fieldValue.Type())
 }
 
-// getMapKeys returns the keys of a map for debugging
-func getMapKeys(m map[string]any) []string {
-	keys := make([]string, 0, len(m))
-	for k := range m {
-		keys = append(keys, k)
-	}
-	return keys
-}
-
 // convertMap converts a map[string]interface{} to a typed map
 func convertMap(sourceMap map[string]any, targetMapValue reflect.Value, tagName string) error {
 	targetType := targetMapValue.Type()

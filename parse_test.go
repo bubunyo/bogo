@@ -30,25 +30,39 @@ type Example struct {
 
 func TestParser(t *testing.T) {
 	ex := Example{
-		// Base:    Base{ID: 101, Note: "Embedded struct"},
 		Name: "John",
 		Age:  30,
-		// Email:   "john@example.com",
-		// Score:   95.5,
-		// Address: Address{City: "Berlin", Country: "Germany"},
-		// Friends: []Base{
-		// 	{ID: 201, Note: "Friend 1"},
-		// 	{ID: 202, Note: "Friend 2"},
-		// },
 	}
 
-	parser := Parser{}
+	parser := NewParser("bogo")
 	taggedFields := parser.ParseFields(ex)
 
-	_ = taggedFields
+	// Check that we got the expected fields
+	if len(taggedFields) != 2 {
+		t.Errorf("Expected 2 fields, got %d", len(taggedFields))
+	}
 
-	// Print extracted fields
-	// for key, info := range taggedFields {
-	// fmt.Printf("Key: %s -> Field: %s, Type: %v, Value: %v\n", key, info.FieldName, info.FieldType, info.Value)
-	// }
+	// Check username field
+	if field, exists := taggedFields["username"]; exists {
+		if field.Value != "John" {
+			t.Errorf("Expected username value 'John', got %v", field.Value)
+		}
+		if field.Type != TypeString {
+			t.Errorf("Expected username type %v, got %v", TypeString, field.Type)
+		}
+	} else {
+		t.Error("Expected 'username' field not found")
+	}
+
+	// Check age field
+	if field, exists := taggedFields["age"]; exists {
+		if field.Value != 30 {
+			t.Errorf("Expected age value 30, got %v", field.Value)
+		}
+		if field.Type != TypeInt {
+			t.Errorf("Expected age type %v, got %v", TypeInt, field.Type)
+		}
+	} else {
+		t.Error("Expected 'age' field not found")
+	}
 }
