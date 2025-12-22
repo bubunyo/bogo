@@ -1,7 +1,8 @@
 # Bogo - High-Performance Binary Serialization for Go
 
-Bogo is a fast, compact length-prefixed binary serialization format with embeded key fileds and type information. It provides efficient encoding and decoding of data types with performance and zerop copying.
-It is ideal when you need JSON-like simplicity with binary format performance and selective field desirialization.
+Bogo is a fast, compact binary serialization format with embedded key fields and type information. It provides efficient encoding and decoding of data types with high performance and zero-copy operations.
+
+Bogo is ideal when you need JSON-like simplicity with binary format performance, especially for selective field deserialization in complex data types.
 
 ## Features
 
@@ -259,67 +260,7 @@ data, err := encoder.Encode(value)
 
 ## Binary Format
 
-Bogo uses a compact, self-describing binary format optimized for performance and space efficiency. The format is fully documented in the [Binary Format Specification](spec.md).
-
-### Format Overview
-
-The binary format consists of:
-
-```
-[Version:1][Type:1][TypeSpecificData:Variable]
-```
-
-- **Version**: Format version byte (currently `0x00`)
-- **Type**: Data type identifier (see type constants below)
-- **TypeSpecificData**: Variable-length data specific to each type
-
-### Type Constants
-
-| Type ID | Name | Description | Format |
-|---------|------|-------------|--------|
-| `0x00` | TypeNull | Null value | No additional data |
-| `0x01` | TypeBoolTrue | Boolean true | No additional data |
-| `0x02` | TypeBoolFalse | Boolean false | No additional data |
-| `0x03` | TypeString | UTF-8 string | `[SizeLen:1][Size:VarInt][Data:Bytes]` |
-| `0x04` | TypeByte | Single byte | `[Value:1]` |
-| `0x05` | TypeInt | Signed integer | `[SizeLen:1][Value:VarInt]` |
-| `0x06` | TypeUint | Unsigned integer | `[SizeLen:1][Value:VarInt]` |
-| `0x07` | TypeFloat | IEEE 754 float | `[SizeLen:1][Value:Bytes]` |
-| `0x08` | TypeBlob | Binary data | `[SizeLen:1][Size:VarInt][Data:Bytes]` |
-| `0x09` | TypeTimestamp | Unix timestamp (ms) | `[Timestamp:8]` (little-endian) |
-| `0x0A` | TypeArray | Heterogeneous array | `[SizeLen:1][TotalSize:VarInt][Elements:Variable]` |
-| `0x0B` | TypeTypedArray | Homogeneous array | `[ElementType:1][Count:VarInt][Elements:Variable]` |
-| `0x0C` | TypeObject | Key-value object | `[SizeLen:1][TotalSize:VarInt][FieldEntries:Variable]` |
-
-### VarInt Encoding
-
-Bogo uses Go's standard variable-length integer encoding (`binary.PutUvarint`/`binary.Uvarint`):
-- Values 0-127: 1 byte
-- Values 128-16383: 2 bytes  
-- Values 16384-2097151: 3 bytes
-- Up to 8 bytes for large values
-
-### Object Format
-
-Objects use a sophisticated field entry format for efficient encoding:
-
-```
-TypeObject + [SizeLen:1][TotalSize:VarInt] + FieldEntries
-```
-
-Each field entry:
-```
-[EntrySizeLen:1][EntrySize:VarInt][KeyLen:1][Key:Bytes][Value:EncodedValue]
-```
-
-This format allows for:
-- Fast field skipping during parsing
-- Efficient object traversal
-- Self-describing nested structures
-
-### Specification
-
-For complete technical details, including encoding algorithms, edge cases, and implementation notes, see the [Binary Format Specification](spec.md).
+For complete technical details about the binary format, encoding algorithms, type specifications, and implementation notes, see the [Binary Format Specification](spec.md).
 
 ## API Reference
 
@@ -389,32 +330,6 @@ fmt.Println(decoded["zero_string"])  // "" (empty string, not nil)
 fmt.Println(decoded["zero_number"])  // 0 (zero, not nil)
 fmt.Println(decoded["zero_bool"])    // false (not nil)
 fmt.Println(decoded["nil_value"])    // nil
-```
-
-### Tri-State Booleans
-
-This enables tri-state boolean logic:
-- `true` → true value
-- `false` → false value  
-- `nil` → unknown/unset value
-
-## Error Handling
-
-Bogo provides detailed error messages for debugging:
-
-```go
-data, err := bogo.Marshal(value)
-if err != nil {
-    // Handle encoding errors
-    fmt.Printf("Encoding failed: %v\n", err)
-}
-
-var result interface{}
-err = bogo.Unmarshal(data, &result)
-if err != nil {
-    // Handle decoding errors
-    fmt.Printf("Decoding failed: %v\n", err)
-}
 ```
 
 ## Testing

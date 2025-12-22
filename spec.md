@@ -62,27 +62,33 @@ Bogo is a compact, efficient binary serialization format designed for high-perfo
 
 ### Type Constants
 
-| Type ID | Name | Description |
-|---------|------|-------------|
-| `0x00` | `TypeNull` | Null/nil value |
-| `0x01` | `TypeBoolTrue` | Boolean true |
-| `0x02` | `TypeBoolFalse` | Boolean false |
-| `0x03` | `TypeString` | UTF-8 string |
-| `0x04` | `TypeByte` | Single byte (uint8) |
-| `0x05` | `TypeInt` | Signed integer |
-| `0x06` | `TypeUint` | Unsigned integer |
-| `0x07` | `TypeFloat` | IEEE 754 floating point |
-| `0x08` | `TypeBlob` | Binary data ([]byte) |
-| `0x09` | `TypeTimestamp` | 64-bit timestamp |
-| `0x0A` | `TypeArray` | Heterogeneous array |
-| `0x0B` | `TypeTypedArray` | Homogeneous array |
-| `0x0C` | `TypeObject` | Key-value map/object |
+| Type ID | Name | Description | Format |
+|---------|------|-------------|--------|
+| `0x00` | `TypeNull` | Null/nil value | No additional data |
+| `0x01` | `TypeBoolTrue` | Boolean true | No additional data |
+| `0x02` | `TypeBoolFalse` | Boolean false | No additional data |
+| `0x03` | `TypeString` | UTF-8 string | `[SizeLen:1][Size:VarInt][Data:Bytes]` |
+| `0x04` | `TypeByte` | Single byte (uint8) | `[Value:1]` |
+| `0x05` | `TypeInt` | Signed integer | `[SizeLen:1][Value:VarInt]` |
+| `0x06` | `TypeUint` | Unsigned integer | `[SizeLen:1][Value:VarInt]` |
+| `0x07` | `TypeFloat` | IEEE 754 floating point | `[SizeLen:1][Value:Bytes]` |
+| `0x08` | `TypeBlob` | Binary data ([]byte) | `[SizeLen:1][Size:VarInt][Data:Bytes]` |
+| `0x09` | `TypeTimestamp` | 64-bit timestamp (ms) | `[Timestamp:8]` (little-endian) |
+| `0x0A` | `TypeArray` | Heterogeneous array | `[SizeLen:1][TotalSize:VarInt][Elements:Variable]` |
+| `0x0B` | `TypeTypedArray` | Homogeneous array | `[ElementType:1][Count:VarInt][Elements:Variable]` |
+| `0x0C` | `TypeObject` | Key-value map/object | `[SizeLen:1][TotalSize:VarInt][FieldEntries:Variable]` |
 
 ## Encoding Specifications
 
 ### Variable-Length Integer Encoding (VarInt)
 
-Used for encoding sizes and lengths throughout the format.
+Bogo uses Go's standard variable-length integer encoding (`binary.PutUvarint`/`binary.Uvarint`) for efficient size representation:
+
+**Encoding Rules:**
+- Values 0-127: 1 byte
+- Values 128-16383: 2 bytes  
+- Values 16384-2097151: 3 bytes
+- Up to 8 bytes for large values
 
 **Structure:**
 ```
@@ -93,8 +99,27 @@ Used for encoding sizes and lengths throughout the format.
 ```
 
 - **Size Len**: Number of bytes needed to store the size (1-8)
-- **Size Value**: Little-endian encoded size
+- **Size Value**: Little-endian encoded size using Go's VarInt encoding
 - **Range**: 0 to 2^64-1
+
+### Object Field Entry Format
+
+Objects use a sophisticated field entry format for efficient encoding and field skipping:
+
+```
+TypeObject + [SizeLen:1][TotalSize:VarInt] + FieldEntries
+```
+
+Each field entry:
+```
+[EntrySizeLen:1][EntrySize:VarInt][KeyLen:1][Key:Bytes][Value:EncodedValue]
+```
+
+**Benefits:**
+- Fast field skipping during parsing
+- Efficient object traversal
+- Self-describing nested structures
+- Enables selective field decoding optimization
 
 ### Type-Specific Encodings
 
