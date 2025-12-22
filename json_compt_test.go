@@ -301,4 +301,3 @@ func BenchmarkJSONvsBogo(b *testing.B) {
 		}
 	})
 }
-

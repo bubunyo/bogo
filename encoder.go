@@ -16,7 +16,7 @@ type Encoder struct {
 	CompactArrays   bool   // Use typed arrays when beneficial
 	ValidateStrings bool   // Validate UTF-8 encoding in strings
 	TagName         string // Struct tag name to use (default: "json" for compatibility)
-	
+
 	// Internal state
 	depth int
 }
@@ -27,17 +27,17 @@ type EncoderOption func(*Encoder)
 // NewConfigurableEncoder creates a new Encoder with optional configuration
 func NewConfigurableEncoder(options ...EncoderOption) *Encoder {
 	e := &Encoder{
-		MaxDepth:        100,    // Default max depth
+		MaxDepth:        100, // Default max depth
 		StrictMode:      false,
 		CompactArrays:   true,
 		ValidateStrings: true,
 		TagName:         "json", // Default to json tag for compatibility
 	}
-	
+
 	for _, option := range options {
 		option(e)
 	}
-	
+
 	return e
 }
 
@@ -75,12 +75,12 @@ func WithStructTag(tagName string) EncoderOption {
 // Encode encodes a value using the configured encoder
 func (e *Encoder) Encode(v any) ([]byte, error) {
 	e.depth = 0 // Reset depth counter
-	
+
 	res, err := e.encode(v)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	return append([]byte{Version}, res...), nil
 }
 
@@ -90,7 +90,7 @@ func (e *Encoder) EncodeTo(w io.Writer, v any) error {
 	if err != nil {
 		return err
 	}
-	
+
 	_, err = w.Write(data)
 	return err
 }
@@ -101,12 +101,12 @@ func (e *Encoder) encode(v any) ([]byte, error) {
 	if e.MaxDepth > 0 && e.depth > e.MaxDepth {
 		return nil, fmt.Errorf("bogo encode error: maximum nesting depth exceeded (%d)", e.MaxDepth)
 	}
-	
+
 	// Handle null values
 	if isNullValue(v) {
 		return encodeNull(), nil
 	}
-	
+
 	// Delegate to type-specific encoding with validation
 	switch val := v.(type) {
 	case string:
@@ -114,52 +114,52 @@ func (e *Encoder) encode(v any) ([]byte, error) {
 			return nil, fmt.Errorf("bogo encode error: invalid UTF-8 string")
 		}
 		return encodeString(val)
-		
+
 	case bool:
 		return encodeBool(val), nil
-		
+
 	case byte:
 		return encodeByte(val)
-		
+
 	case []byte:
 		return encodeBlob(val)
-		
+
 	case time.Time:
 		return encodeTimestamp(val.UnixMilli())
-		
+
 	case []string:
 		if e.CompactArrays {
 			return e.encodeTypedArrayWithDepth(val)
 		}
 		return e.encodeArrayWithDepth(val)
-		
+
 	case []int:
 		if e.CompactArrays {
 			return e.encodeTypedArrayWithDepth(val)
 		}
 		return e.encodeArrayWithDepth(val)
-		
+
 	case []int64:
 		if e.CompactArrays {
 			return e.encodeTypedArrayWithDepth(val)
 		}
 		return e.encodeArrayWithDepth(val)
-		
+
 	case []float64:
 		if e.CompactArrays {
 			return e.encodeTypedArrayWithDepth(val)
 		}
 		return e.encodeArrayWithDepth(val)
-		
+
 	case []bool:
 		if e.CompactArrays {
 			return e.encodeTypedArrayWithDepth(val)
 		}
 		return e.encodeArrayWithDepth(val)
-		
+
 	case map[string]any:
 		return e.encodeObjectWithDepth(val)
-		
+
 	default:
 		// Use reflection for complex types (including structs)
 		return e.encodeReflected(v)
@@ -170,7 +170,7 @@ func (e *Encoder) encode(v any) ([]byte, error) {
 func (e *Encoder) encodeArrayWithDepth(v any) ([]byte, error) {
 	e.depth++
 	defer func() { e.depth-- }()
-	
+
 	return encodeArray(v)
 }
 
@@ -178,7 +178,7 @@ func (e *Encoder) encodeArrayWithDepth(v any) ([]byte, error) {
 func (e *Encoder) encodeTypedArrayWithDepth(v any) ([]byte, error) {
 	e.depth++
 	defer func() { e.depth-- }()
-	
+
 	return encodeTypedArray(v)
 }
 
@@ -188,10 +188,10 @@ func (e *Encoder) encodeObjectWithDepth(v map[string]any) ([]byte, error) {
 	if e.MaxDepth > 0 && e.depth >= e.MaxDepth {
 		return nil, fmt.Errorf("bogo encode error: maximum nesting depth exceeded (%d)", e.MaxDepth)
 	}
-	
+
 	e.depth++
 	defer func() { e.depth-- }()
-	
+
 	// Validate object keys if in strict mode
 	if e.StrictMode {
 		for key := range v {
@@ -203,7 +203,7 @@ func (e *Encoder) encodeObjectWithDepth(v map[string]any) ([]byte, error) {
 			}
 		}
 	}
-	
+
 	// Encode the object with proper depth tracking
 	return e.encodeMapWithDepth(v)
 }
@@ -211,7 +211,7 @@ func (e *Encoder) encodeObjectWithDepth(v map[string]any) ([]byte, error) {
 // encodeMapWithDepth encodes a map with proper depth tracking and using the encoder
 func (e *Encoder) encodeMapWithDepth(obj map[string]any) ([]byte, error) {
 	fieldsBuf := &bytes.Buffer{}
-	
+
 	// Encode each key-value pair as field entries
 	for key, value := range obj {
 		fieldEntry, err := e.encodeFieldEntryWithDepth(key, value)
@@ -220,22 +220,22 @@ func (e *Encoder) encodeMapWithDepth(obj map[string]any) ([]byte, error) {
 		}
 		fieldsBuf.Write(fieldEntry)
 	}
-	
+
 	fieldsData := fieldsBuf.Bytes()
 	fieldsSize := len(fieldsData)
-	
+
 	// Encode the total size of all fields
 	encodedSizeData, err := encodeUint(uint64(fieldsSize))
 	if err != nil {
 		return nil, fmt.Errorf("bogo encode error: failed to encode fields size: %w", err)
 	}
-	
+
 	// Build final object: TypeObject + LenSize + DataSize + FieldData
 	result := &bytes.Buffer{}
 	result.WriteByte(TypeObject)
 	result.Write(encodedSizeData[1:]) // remove type byte from size encoding
 	result.Write(fieldsData)
-	
+
 	return result.Bytes(), nil
 }
 
@@ -246,30 +246,30 @@ func (e *Encoder) encodeFieldEntryWithDepth(key string, value any) ([]byte, erro
 	if err != nil {
 		return nil, err
 	}
-	
+
 	keyBytes := []byte(key)
 	keyLen := len(keyBytes)
-	
+
 	if keyLen > 255 {
 		return nil, fmt.Errorf("key too long, maximum 255 bytes")
 	}
-	
+
 	// Calculate entry size: keyLen(1) + key + value
 	entrySize := 1 + keyLen + len(encodedValue)
-	
+
 	// Encode entry size
 	encodedEntrySize, err := encodeUint(uint64(entrySize))
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// Build field entry: LenSize + EntrySize + KeyLength + Key + Value
 	entry := &bytes.Buffer{}
 	entry.Write(encodedEntrySize[1:]) // remove type byte
 	entry.WriteByte(byte(keyLen))
 	entry.Write(keyBytes)
 	entry.Write(encodedValue)
-	
+
 	return entry.Bytes(), nil
 }
 
@@ -277,7 +277,7 @@ func (e *Encoder) encodeFieldEntryWithDepth(key string, value any) ([]byte, erro
 func (e *Encoder) encodeReflected(v any) ([]byte, error) {
 	rv := reflect.ValueOf(v)
 	rt := reflect.TypeOf(v)
-	
+
 	// Handle pointers
 	for rv.Kind() == reflect.Ptr {
 		if rv.IsNil() {
@@ -286,7 +286,7 @@ func (e *Encoder) encodeReflected(v any) ([]byte, error) {
 		rv = rv.Elem()
 		rt = rt.Elem()
 	}
-	
+
 	switch rv.Kind() {
 	case reflect.Struct:
 		return e.encodeStruct(rv, rt)
@@ -309,33 +309,33 @@ func (e *Encoder) encodeReflected(v any) ([]byte, error) {
 // encodeStruct converts a struct to a map[string]any and encodes it
 func (e *Encoder) encodeStruct(rv reflect.Value, rt reflect.Type) ([]byte, error) {
 	obj := make(map[string]any)
-	
+
 	for i := 0; i < rt.NumField(); i++ {
 		field := rt.Field(i)
 		fieldValue := rv.Field(i)
-		
+
 		// Skip unexported fields
 		if !field.IsExported() {
 			continue
 		}
-		
+
 		// Get field name from tag or use field name
 		fieldName := e.getFieldName(field)
-		
+
 		// Skip if tag indicates to omit the field
 		if fieldName == "-" {
 			continue
 		}
-		
+
 		// Skip zero values if omitempty is specified
 		if e.shouldOmitEmpty(field) && e.isZeroValue(fieldValue) {
 			continue
 		}
-		
+
 		// Recursively encode the field value
 		obj[fieldName] = fieldValue.Interface()
 	}
-	
+
 	return e.encodeObjectWithDepth(obj)
 }
 
@@ -345,7 +345,7 @@ func (e *Encoder) getFieldName(field reflect.StructField) string {
 	if tag == "" {
 		return field.Name
 	}
-	
+
 	// Handle "fieldname" and "fieldname,omitempty" formats
 	if commaIdx := len(tag); commaIdx > 0 {
 		for i, c := range tag {
@@ -356,7 +356,7 @@ func (e *Encoder) getFieldName(field reflect.StructField) string {
 		}
 		return tag[:commaIdx]
 	}
-	
+
 	return tag
 }
 
@@ -389,23 +389,23 @@ func (e *Encoder) isZeroValue(v reflect.Value) bool {
 func (e *Encoder) encodeReflectedArray(rv reflect.Value) ([]byte, error) {
 	length := rv.Len()
 	arr := make([]any, length)
-	
+
 	for i := 0; i < length; i++ {
 		arr[i] = rv.Index(i).Interface()
 	}
-	
+
 	return e.encodeArrayWithDepth(arr)
 }
 
 // encodeReflectedMap handles map encoding via reflection
 func (e *Encoder) encodeReflectedMap(rv reflect.Value) ([]byte, error) {
 	obj := make(map[string]any)
-	
+
 	for _, key := range rv.MapKeys() {
 		keyStr := fmt.Sprintf("%v", key.Interface())
 		obj[keyStr] = rv.MapIndex(key).Interface()
 	}
-	
+
 	return e.encodeObjectWithDepth(obj)
 }
 
@@ -421,10 +421,10 @@ func isValidUTF8(s string) bool {
 
 // EncodingStats provides statistics about encoding operations
 type EncodingStats struct {
-	BytesEncoded  int64
-	MaxDepthUsed  int
-	TypesEncoded  map[Type]int
-	ErrorsCount   int64
+	BytesEncoded int64
+	MaxDepthUsed int
+	TypesEncoded map[Type]int
+	ErrorsCount  int64
 }
 
 // StatsCollector is an encoder that collects statistics
@@ -450,18 +450,18 @@ func (sc *StatsCollector) Encode(v any) ([]byte, error) {
 		sc.Stats.ErrorsCount++
 		return nil, err
 	}
-	
+
 	sc.Stats.BytesEncoded += int64(len(data))
 	if sc.Encoder.depth > sc.Stats.MaxDepthUsed {
 		sc.Stats.MaxDepthUsed = sc.Encoder.depth
 	}
-	
+
 	// Count type usage (simplified - just count the main type)
 	if len(data) >= 2 {
 		typeVal := Type(data[1])
 		sc.Stats.TypesEncoded[typeVal]++
 	}
-	
+
 	return data, nil
 }
 

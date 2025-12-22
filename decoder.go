@@ -27,12 +27,12 @@ type DecoderOption func(*Decoder)
 // NewConfigurableDecoder creates a new Decoder with optional configuration
 func NewConfigurableDecoder(options ...DecoderOption) *Decoder {
 	d := &Decoder{
-		MaxDepth:          100,                 // Default max depth
+		MaxDepth:          100, // Default max depth
 		StrictMode:        false,
 		AllowUnknownTypes: false,
-		MaxObjectSize:     1024 * 1024 * 10,   // 10MB default limit
+		MaxObjectSize:     1024 * 1024 * 10, // 10MB default limit
 		ValidateUTF8:      true,
-		TagName:           "json",              // Default to json tag for compatibility
+		TagName:           "json", // Default to json tag for compatibility
 	}
 
 	for _, option := range options {
@@ -571,4 +571,3 @@ func (dsc *DecoderStatsCollector) ResetStats() {
 		TypesDecoded: make(map[Type]int),
 	}
 }
-

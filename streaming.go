@@ -32,7 +32,7 @@ func (enc *StreamEncoder) Encode(v any) error {
 	if err != nil {
 		return err
 	}
-	
+
 	_, err = enc.w.Write(data)
 	return err
 }
@@ -72,7 +72,7 @@ func (dec *StreamDecoder) Decode(v any) error {
 	if err != nil {
 		return err
 	}
-	
+
 	return assignResult(result, v)
 }
 

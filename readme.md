@@ -1,6 +1,7 @@
 # Bogo - High-Performance Binary Serialization for Go
 
-Bogo is a fast, compact binary serialization format for Go with a JSON-compatible API. It provides efficient encoding and decoding of Go data types with performance that significantly outperforms standard JSON serialization.
+Bogo is a fast, compact length-prefixed binary serialization format with embeded key fileds and type information. It provides efficient encoding and decoding of data types with performance and zerop copying.
+It is ideal when you need JSON-like simplicity with binary format performance and selective field desirialization.
 
 ## Features
 
@@ -14,7 +15,7 @@ Bogo is a fast, compact binary serialization format for Go with a JSON-compatibl
 
 ## Supported Types
 
-| Go Type | Bogo Type | Description |
+| Primitive Type | Bogo Type | Description |
 |---------|-----------|-------------|
 | `nil` | TypeNull | Null values |
 | `bool` | TypeBoolTrue/TypeBoolFalse | Boolean values |
@@ -24,10 +25,10 @@ Bogo is a fast, compact binary serialization format for Go with a JSON-compatibl
 | `uint`, `uint8`, `uint16`, `uint32`, `uint64` | TypeUint | Unsigned integers with VarInt encoding |
 | `float32`, `float64` | TypeFloat | IEEE 754 floating-point numbers |
 | `[]byte` | TypeBlob | Binary data with length prefix |
-| `time.Time` | TypeTimestamp | Unix timestamps |
-| `[]interface{}` | TypeArray | Heterogeneous arrays |
-| Typed slices | TypeTypedArray | Homogeneous typed arrays |
-| `map[string]interface{}` | TypeObject | Key-value objects |
+| `time` | TypeTimestamp | Unix timestamps |
+| `[]any{}` | TypeArray | Heterogeneous arrays |
+| `[]int{}` | TypeTypedArray | Homogeneous typed arrays |
+| `object` | TypeObject | Key-value objects |
 
 ## Installation
 
@@ -121,22 +122,44 @@ func main() {
 
 Bogo delivers significant performance improvements over JSON serialization:
 
-### Benchmark Results
+### Benchmark Results (Apple M2, 8 cores)
 
 ```
 Simple Data (small objects):
-- JSON Deserialize:     1,934 ns/op
-- Bogo Deserialize:       560 ns/op  (3.45x faster)
-- MessagePack:            625 ns/op
+- JSON Serialize:         709 ns/op    272 B/op    3 allocs/op
+- Bogo Serialize:         964 ns/op   1088 B/op   18 allocs/op  (0.74x speed)
+- MessagePack:            442 ns/op    320 B/op    4 allocs/op
+
+- JSON Deserialize:      1910 ns/op    336 B/op    7 allocs/op
+- Bogo Deserialize:       564 ns/op    488 B/op   16 allocs/op  (3.39x faster)
+- MessagePack:            623 ns/op    168 B/op    4 allocs/op
 
 Complex Data (nested structures):
-- JSON Serialize:       8,693 ns/op
-- Bogo Serialize:       8,446 ns/op  (1.03x faster)
-- MessagePack:          2,856 ns/op
+- JSON Serialize:        6422 ns/op   2514 B/op   36 allocs/op
+- Bogo Serialize:       15449 ns/op  18939 B/op  291 allocs/op  (0.42x speed)
+- MessagePack:           3650 ns/op   2472 B/op   17 allocs/op
 
-- JSON Deserialize:    12,757 ns/op
-- Bogo Deserialize:     4,429 ns/op  (2.88x faster)
-- MessagePack:          5,001 ns/op
+- JSON Deserialize:     19254 ns/op   3128 B/op   93 allocs/op
+- Bogo Deserialize:      4341 ns/op   4464 B/op  101 allocs/op  (4.43x faster)
+- MessagePack:           7888 ns/op   2921 B/op   86 allocs/op
+
+Array Data (large arrays):
+- JSON Serialize:       23173 ns/op   3889 B/op   15 allocs/op
+- Bogo Serialize:       54654 ns/op  41025 B/op 1040 allocs/op  (0.42x speed)
+- MessagePack:          10520 ns/op   8178 B/op    8 allocs/op
+
+- JSON Deserialize:     56072 ns/op  21624 B/op  647 allocs/op
+- Bogo Deserialize:      5822 ns/op   6016 B/op  119 allocs/op  (9.63x faster)
+- MessagePack:          18743 ns/op  11027 B/op  416 allocs/op
+
+Binary Data (large byte arrays):
+- JSON Serialize:       12452 ns/op  16904 B/op   17 allocs/op
+- Bogo Serialize:       12936 ns/op  64081 B/op   28 allocs/op  (0.96x speed)
+- MessagePack:           3876 ns/op  16256 B/op    5 allocs/op
+
+- JSON Deserialize:     95240 ns/op  16248 B/op   32 allocs/op
+- Bogo Deserialize:       961 ns/op    872 B/op   17 allocs/op  (99.1x faster)
+- MessagePack:           3346 ns/op  12292 B/op   21 allocs/op
 ```
 
 ## Advanced Configuration
@@ -158,25 +181,25 @@ result, err := decoder.Decode(data)
 
 ### Field-Specific Optimization
 
-Bogo includes a powerful field-specific decoding optimization that provides **up to 334x performance improvement** when you only need specific fields from large objects.
+Bogo includes field-specific decoding optimization that provides **up to 334x performance improvement** when you only need specific fields from large objects.
 
 #### Performance Results (Apple M2, 8 cores)
 
 ```
 BEFORE OPTIMIZATION:
-BenchmarkFieldDecoding_Full-8               	   14395	    281858 ns/op	   48056 B/op	    1138 allocs/op
-BenchmarkFieldDecoding_Selective-8          	   19111	     56626 ns/op	   31456 B/op	     826 allocs/op
+BenchmarkFieldDecoding_Full-8               	   17913	     67037 ns/op	   48057 B/op	    1138 allocs/op
+BenchmarkFieldDecoding_Selective-8          	   37464	     41110 ns/op	   31456 B/op	     826 allocs/op
 
 AFTER OPTIMIZATION:
-BenchmarkFieldDecoding_WithOptimization-8   	 1376488	       844.3 ns/op	     424 B/op	       7 allocs/op
+BenchmarkFieldDecoding_WithOptimization-8   	 2121243	       524.6 ns/op	     424 B/op	       7 allocs/op
 ```
 
 #### Performance Improvements
-- **334x faster** than full decoding (281,858ns → 844ns)
-- **67x faster** than selective decoding without optimization (56,626ns → 844ns)
-- **113x fewer allocations** than full decoding (1,138 → 7)
+- **128x faster** than full decoding (67,037ns → 524ns)
+- **78x faster** than selective decoding without optimization (41,110ns → 524ns)
+- **163x fewer allocations** than full decoding (1,138 → 7)
 - **118x fewer allocations** than selective decoding (826 → 7)
-- **113x less memory usage** than full decoding (48,056B → 424B)
+- **113x less memory usage** than full decoding (48,057B → 424B)
 - **74x less memory usage** than selective decoding (31,456B → 424B)
 
 #### Usage Examples
@@ -420,15 +443,3 @@ go test -bench=. -benchmem
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## Comparison with Other Formats
-
-| Feature | Bogo | JSON | MessagePack | Protocol Buffers |
-|---------|------|------|-------------|------------------|
-| Human Readable | L |  | L | L |
-| Schema Required | L | L | L |  |
-| Go API Compatibility |  |  | L | L |
-| Size Efficiency |  | L |  |  |
-| Speed |  | L |  |  |
-| Cross Language | L |  |  |  |
-
-Bogo is ideal when you need JSON-like simplicity with binary format performance in Go applications.

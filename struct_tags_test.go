@@ -10,26 +10,26 @@ import (
 
 // Test struct with various tag scenarios
 type User struct {
-	ID       int64     `json:"id"`
-	Username string    `json:"username"`
-	Email    string    `json:"email"`
-	Active   bool      `json:"active"`
-	Balance  float64   `json:"balance"`
-	Created  time.Time `json:"created"`
-	Tags     []string  `json:"tags"`
+	ID       int64          `json:"id"`
+	Username string         `json:"username"`
+	Email    string         `json:"email"`
+	Active   bool           `json:"active"`
+	Balance  float64        `json:"balance"`
+	Created  time.Time      `json:"created"`
+	Tags     []string       `json:"tags"`
 	Settings map[string]any `json:"settings"`
-	
+
 	// Test omitempty
 	OptionalField string `json:"optional,omitempty"`
-	
+
 	// Test field without tag (should use field name)
 	NoTag string
-	
+
 	// Test ignored field
 	IgnoredField string `json:"-"`
-	
+
 	// Private field (should be ignored)
-	privateField string `json:"private"`
+	privateField string
 }
 
 type NestedStruct struct {
@@ -40,15 +40,15 @@ type NestedStruct struct {
 
 func TestStructTagsBasicEncoding(t *testing.T) {
 	user := User{
-		ID:       12345,
-		Username: "testuser",
-		Email:    "test@example.com", 
-		Active:   true,
-		Balance:  99.99,
-		Created:  time.Unix(1609459200, 0), // 2021-01-01 00:00:00
-		Tags:     []string{"admin", "user"},
-		Settings: map[string]any{"theme": "dark", "notifications": true},
-		NoTag:    "no tag value",
+		ID:            12345,
+		Username:      "testuser",
+		Email:         "test@example.com",
+		Active:        true,
+		Balance:       99.99,
+		Created:       time.Unix(1609459200, 0), // 2021-01-01 00:00:00
+		Tags:          []string{"admin", "user"},
+		Settings:      map[string]any{"theme": "dark", "notifications": true},
+		NoTag:         "no tag value",
 		OptionalField: "", // empty, should be omitted if omitempty works
 		IgnoredField:  "should be ignored",
 		privateField:  "private value",
@@ -73,19 +73,18 @@ func TestStructTagsBasicEncoding(t *testing.T) {
 	assert.Equal(t, user.Email, decoded.Email)
 	assert.Equal(t, user.Active, decoded.Active)
 	assert.Equal(t, user.Balance, decoded.Balance)
-	
-	
+
 	assert.Equal(t, user.Created.Unix(), decoded.Created.Unix()) // Compare Unix timestamp
 	assert.Equal(t, user.Tags, decoded.Tags)
 	assert.Equal(t, user.Settings, decoded.Settings)
-	
+
 	// Field without tag should use field name
 	assert.Equal(t, user.NoTag, decoded.NoTag)
-	
+
 	// Ignored field should not be preserved
 	assert.Empty(t, decoded.IgnoredField)
-	
-	// Private field should not be preserved  
+
+	// Private field should not be preserved
 	assert.Empty(t, decoded.privateField)
 }
 
@@ -160,7 +159,7 @@ func TestStructTagsCustomTag(t *testing.T) {
 	var decoded CustomTagStruct
 	SetDefaultDecoder(decoder)
 	defer SetDefaultDecoder(NewConfigurableDecoder()) // Reset to default
-	
+
 	err = assignResult(result, &decoded)
 	require.NoError(t, err)
 
@@ -172,8 +171,8 @@ func TestStructTagsCustomTag(t *testing.T) {
 
 func TestStructTagsOmitEmpty(t *testing.T) {
 	type OmitEmptyStruct struct {
-		Required string `json:"required"`
-		Optional string `json:"optional,omitempty"`
+		Required   string `json:"required"`
+		Optional   string `json:"optional,omitempty"`
 		AlwaysOmit string `json:"-"`
 	}
 
@@ -192,12 +191,12 @@ func TestStructTagsOmitEmpty(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, original.Required, decoded.Required)
-	assert.Empty(t, decoded.Optional) // Should remain empty
+	assert.Empty(t, decoded.Optional)   // Should remain empty
 	assert.Empty(t, decoded.AlwaysOmit) // Should be empty (omitted)
 
 	// Test with non-empty optional field
 	original.Optional = "optional value"
-	
+
 	data, err = Marshal(original)
 	require.NoError(t, err)
 
@@ -206,7 +205,7 @@ func TestStructTagsOmitEmpty(t *testing.T) {
 
 	assert.Equal(t, original.Required, decoded.Required)
 	assert.Equal(t, original.Optional, decoded.Optional) // Should be preserved
-	assert.Empty(t, decoded.AlwaysOmit) // Still omitted
+	assert.Empty(t, decoded.AlwaysOmit)                  // Still omitted
 }
 
 func TestStructTagsPointers(t *testing.T) {
@@ -244,7 +243,7 @@ func TestStructTagsPointers(t *testing.T) {
 	// Test with nil pointers
 	nilPointers := PointerStruct{
 		Name:  nil,
-		Age:   nil, 
+		Age:   nil,
 		Email: nil,
 	}
 
@@ -262,7 +261,7 @@ func TestStructTagsPointers(t *testing.T) {
 
 func TestStructTagsSlicesAndMaps(t *testing.T) {
 	type ComplexStruct struct {
-		StringSlice []string           `json:"string_slice"`
+		StringSlice []string          `json:"string_slice"`
 		IntSlice    []int             `json:"int_slice"`
 		FloatSlice  []float64         `json:"float_slice"`
 		StringMap   map[string]string `json:"string_map"`
@@ -298,11 +297,11 @@ func TestStructTagsSlicesAndMaps(t *testing.T) {
 func TestStructTagsJSONCompatibility(t *testing.T) {
 	// Test that bogo can decode structs the same way as JSON package
 	type JSONCompatStruct struct {
-		ID       int     `json:"id"`
-		Name     string  `json:"name"`
-		Active   bool    `json:"active"`
-		Balance  float64 `json:"balance"`
-		Tags     []string `json:"tags"`
+		ID       int            `json:"id"`
+		Name     string         `json:"name"`
+		Active   bool           `json:"active"`
+		Balance  float64        `json:"balance"`
+		Tags     []string       `json:"tags"`
 		Settings map[string]any `json:"settings"`
 	}
 
@@ -313,9 +312,9 @@ func TestStructTagsJSONCompatibility(t *testing.T) {
 		Balance: 99.99,
 		Tags:    []string{"admin", "user"},
 		Settings: map[string]any{
-			"theme": "dark",
+			"theme":         "dark",
 			"notifications": true,
-			"max_items": int64(100),
+			"max_items":     int64(100),
 		},
 	}
 

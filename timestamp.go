@@ -17,7 +17,7 @@ func decodeTimestamp(data []byte) (int64, error) {
 	if len(data) < 8 {
 		return 0, fmt.Errorf("timestamp decode error: insufficient data, need 8 bytes, got %d", len(data))
 	}
-	
+
 	timestamp := int64(binary.LittleEndian.Uint64(data[:8]))
 	return timestamp, nil
 }

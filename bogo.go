@@ -493,4 +493,3 @@ func GetDefaultEncoder() *Encoder {
 func GetDefaultDecoder() *Decoder {
 	return defaultDecoder
 }
-

@@ -42,7 +42,7 @@ func decodeByte(data []byte) (byte, error) {
 	if len(data) < 1 {
 		return 0, fmt.Errorf("byte decode error: insufficient data, need 1 byte, got %d", len(data))
 	}
-	
+
 	return data[0], nil
 }
 
@@ -51,12 +51,12 @@ func isNullValue(v any) bool {
 	if v == nil {
 		return true
 	}
-	
+
 	data := reflect.ValueOf(v)
 	if !data.IsValid() {
 		return true
 	}
-	
+
 	// Handle nil pointers, slices, maps, etc.
 	if data.CanInterface() && data.Kind() != reflect.Invalid {
 		switch data.Kind() {
@@ -66,7 +66,7 @@ func isNullValue(v any) bool {
 			}
 		}
 	}
-	
+
 	return false
 }
 
@@ -75,7 +75,7 @@ func isZeroValue(v any) bool {
 	if v == nil {
 		return true
 	}
-	
+
 	switch val := v.(type) {
 	case string:
 		return val == ""

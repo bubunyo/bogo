@@ -44,7 +44,7 @@ func (p *Parser) extractFields(v reflect.Value, t reflect.Type, result *map[stri
 	// Iterate through the struct fields
 	for i := 0; i < t.NumField(); i++ {
 		field := t.Field(i)
-		
+
 		// Skip unexported fields
 		if !field.IsExported() {
 			continue
@@ -60,7 +60,7 @@ func (p *Parser) extractFields(v reflect.Value, t reflect.Type, result *map[stri
 
 		// Get field name from tag or use field name
 		fieldName := p.getFieldName(field)
-		
+
 		// Skip if tag indicates to omit the field
 		if fieldName == "-" {
 			continue
@@ -92,14 +92,14 @@ func (p *Parser) getFieldName(field reflect.StructField) string {
 	if tag == "" {
 		return field.Name
 	}
-	
+
 	// Handle "fieldname" and "fieldname,omitempty" formats
 	for i, c := range tag {
 		if c == ',' {
 			return tag[:i]
 		}
 	}
-	
+
 	return tag
 }
 

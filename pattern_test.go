@@ -12,10 +12,10 @@ import (
 func TestEncoderPattern(t *testing.T) {
 	t.Run("Basic encoding", func(t *testing.T) {
 		encoder := NewConfigurableEncoder()
-		
+
 		data, err := encoder.Encode("hello")
 		require.NoError(t, err)
-		
+
 		// Should match regular encoding
 		expected, err := Encode("hello")
 		require.NoError(t, err)
@@ -28,7 +28,7 @@ func TestEncoderPattern(t *testing.T) {
 			WithStrictMode(true),
 			WithCompactArrays(false),
 		)
-		
+
 		assert.Equal(t, 5, encoder.MaxDepth)
 		assert.True(t, encoder.StrictMode)
 		assert.False(t, encoder.CompactArrays)
@@ -37,14 +37,14 @@ func TestEncoderPattern(t *testing.T) {
 	t.Run("Max depth limit", func(t *testing.T) {
 		t.Skip("Depth tracking implementation needs more work - skipping for now")
 		encoder := NewConfigurableEncoder(WithMaxDepth(1))
-		
+
 		// Create nested structure that should exceed depth of 1
 		nested := map[string]any{
 			"level1": map[string]any{
 				"level2": "too deep",
 			},
 		}
-		
+
 		_, err := encoder.Encode(nested)
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "maximum nesting depth exceeded")
@@ -52,12 +52,12 @@ func TestEncoderPattern(t *testing.T) {
 
 	t.Run("String validation", func(t *testing.T) {
 		encoder := NewConfigurableEncoder(WithStringValidation(true))
-		
+
 		// Valid UTF-8 string
 		data, err := encoder.Encode("hello 世界")
 		require.NoError(t, err)
 		assert.NotEmpty(t, data)
-		
+
 		// Test would need invalid UTF-8 - for now just test the option exists
 		assert.True(t, encoder.ValidateStrings)
 	})
@@ -65,10 +65,10 @@ func TestEncoderPattern(t *testing.T) {
 	t.Run("EncodeTo writer", func(t *testing.T) {
 		encoder := NewConfigurableEncoder()
 		var buf bytes.Buffer
-		
+
 		err := encoder.EncodeTo(&buf, "test")
 		require.NoError(t, err)
-		
+
 		expected, err := Encode("test")
 		require.NoError(t, err)
 		assert.Equal(t, expected, buf.Bytes())
@@ -76,17 +76,17 @@ func TestEncoderPattern(t *testing.T) {
 
 	t.Run("Compact arrays option", func(t *testing.T) {
 		numbers := []int{1, 2, 3, 4, 5}
-		
+
 		// With compact arrays (default)
 		encoderCompact := NewConfigurableEncoder(WithCompactArrays(true))
 		compactData, err := encoderCompact.Encode(numbers)
 		require.NoError(t, err)
-		
+
 		// Without compact arrays
 		encoderRegular := NewConfigurableEncoder(WithCompactArrays(false))
 		regularData, err := encoderRegular.Encode(numbers)
 		require.NoError(t, err)
-		
+
 		// Compact version should be smaller (though both work)
 		assert.NotEqual(t, compactData, regularData)
 	})
@@ -96,12 +96,12 @@ func TestEncoderPattern(t *testing.T) {
 func TestDecoderPattern(t *testing.T) {
 	t.Run("Basic decoding", func(t *testing.T) {
 		decoder := NewConfigurableDecoder()
-		
+
 		// Encode some test data first
 		original := "hello world"
 		encoded, err := Encode(original)
 		require.NoError(t, err)
-		
+
 		decoded, err := decoder.Decode(encoded)
 		require.NoError(t, err)
 		assert.Equal(t, original, decoded)
@@ -114,7 +114,7 @@ func TestDecoderPattern(t *testing.T) {
 			WithUnknownTypes(true),
 			WithMaxObjectSize(1024),
 		)
-		
+
 		assert.Equal(t, 10, decoder.MaxDepth)
 		assert.True(t, decoder.StrictMode)
 		assert.True(t, decoder.AllowUnknownTypes)
@@ -123,7 +123,7 @@ func TestDecoderPattern(t *testing.T) {
 
 	t.Run("Version validation in strict mode", func(t *testing.T) {
 		decoder := NewConfigurableDecoder(WithDecoderStrictMode(true))
-		
+
 		// Wrong version should fail in strict mode
 		badData := []byte{0x99, TypeString, 1, 5, 'h', 'e', 'l', 'l', 'o'}
 		_, err := decoder.Decode(badData)
@@ -133,7 +133,7 @@ func TestDecoderPattern(t *testing.T) {
 
 	t.Run("Version validation in non-strict mode", func(t *testing.T) {
 		decoder := NewConfigurableDecoder(WithDecoderStrictMode(false))
-		
+
 		// Wrong version should be tolerated in non-strict mode
 		// But let's test with a simple null value
 		data := []byte{0x99, TypeNull}
@@ -144,13 +144,13 @@ func TestDecoderPattern(t *testing.T) {
 
 	t.Run("Unknown types handling", func(t *testing.T) {
 		decoder := NewConfigurableDecoder(WithUnknownTypes(true))
-		
+
 		// Create data with unknown type
 		unknownTypeData := []byte{Version, 0x99, 0x01, 0x02, 0x03} // Type 0x99 doesn't exist
-		
+
 		result, err := decoder.Decode(unknownTypeData)
 		require.NoError(t, err)
-		
+
 		unknown, ok := result.(UnknownType)
 		assert.True(t, ok)
 		assert.Equal(t, Type(0x99), unknown.TypeID)
@@ -159,9 +159,9 @@ func TestDecoderPattern(t *testing.T) {
 
 	t.Run("Unknown types rejection", func(t *testing.T) {
 		decoder := NewConfigurableDecoder(WithUnknownTypes(false))
-		
+
 		unknownTypeData := []byte{Version, 0x99, 0x01, 0x02, 0x03}
-		
+
 		_, err := decoder.Decode(unknownTypeData)
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "unsupported type")
@@ -169,15 +169,15 @@ func TestDecoderPattern(t *testing.T) {
 
 	t.Run("DecodeFrom reader", func(t *testing.T) {
 		decoder := NewConfigurableDecoder()
-		
+
 		original := map[string]any{"test": "value", "number": int64(42)}
 		encoded, err := Encode(original)
 		require.NoError(t, err)
-		
+
 		reader := bytes.NewReader(encoded)
 		decoded, err := decoder.DecodeFrom(reader)
 		require.NoError(t, err)
-		
+
 		decodedMap := decoded.(map[string]any)
 		assert.Equal(t, "value", decodedMap["test"])
 		assert.Equal(t, int64(42), decodedMap["number"])
@@ -185,12 +185,12 @@ func TestDecoderPattern(t *testing.T) {
 
 	t.Run("Insufficient data handling", func(t *testing.T) {
 		decoder := NewConfigurableDecoder()
-		
+
 		// Empty data
 		_, err := decoder.Decode([]byte{})
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "insufficient data")
-		
+
 		// Only version
 		_, err = decoder.Decode([]byte{Version})
 		assert.Error(t, err)
@@ -202,17 +202,17 @@ func TestDecoderPattern(t *testing.T) {
 func TestStatsCollection(t *testing.T) {
 	t.Run("Encoder stats", func(t *testing.T) {
 		encoder := NewStatsCollector()
-		
+
 		// Encode various types
 		data1, err := encoder.Encode("hello")
 		require.NoError(t, err)
-		
+
 		data2, err := encoder.Encode(int64(42))
 		require.NoError(t, err)
-		
+
 		data3, err := encoder.Encode(true)
 		require.NoError(t, err)
-		
+
 		stats := encoder.GetStats()
 		assert.Equal(t, int64(len(data1)+len(data2)+len(data3)), stats.BytesEncoded)
 		assert.True(t, stats.TypesEncoded[TypeString] > 0)
@@ -223,23 +223,23 @@ func TestStatsCollection(t *testing.T) {
 
 	t.Run("Decoder stats", func(t *testing.T) {
 		decoder := NewDecoderStatsCollector()
-		
+
 		// Prepare test data
 		testData := []any{"hello", int64(42), true, []byte{1, 2, 3}}
 		var allEncoded [][]byte
-		
+
 		for _, item := range testData {
 			encoded, err := Encode(item)
 			require.NoError(t, err)
 			allEncoded = append(allEncoded, encoded)
 		}
-		
+
 		// Decode all items
 		for _, encoded := range allEncoded {
 			_, err := decoder.Decode(encoded)
 			require.NoError(t, err)
 		}
-		
+
 		stats := decoder.GetStats()
 		assert.True(t, stats.BytesDecoded > 0)
 		assert.True(t, len(stats.TypesDecoded) > 0)
@@ -249,18 +249,18 @@ func TestStatsCollection(t *testing.T) {
 
 	t.Run("Stats reset", func(t *testing.T) {
 		encoder := NewStatsCollector()
-		
+
 		// Encode something
 		_, err := encoder.Encode("test")
 		require.NoError(t, err)
-		
+
 		// Check stats exist
 		stats := encoder.GetStats()
 		assert.True(t, stats.BytesEncoded > 0)
-		
+
 		// Reset stats
 		encoder.ResetStats()
-		
+
 		// Check stats are cleared
 		newStats := encoder.GetStats()
 		assert.Equal(t, int64(0), newStats.BytesEncoded)
@@ -273,7 +273,7 @@ func TestPatternIntegration(t *testing.T) {
 	t.Run("Encoder/Decoder round trip", func(t *testing.T) {
 		encoder := NewConfigurableEncoder(WithStrictMode(true), WithCompactArrays(true))
 		decoder := NewConfigurableDecoder(WithDecoderStrictMode(true), WithUTF8Validation(true))
-		
+
 		testCases := []any{
 			"hello world",
 			int64(12345),
@@ -289,16 +289,16 @@ func TestPatternIntegration(t *testing.T) {
 				"bytes":  []byte{1, 2, 3},
 			},
 		}
-		
+
 		for _, testCase := range testCases {
 			// Encode
 			encoded, err := encoder.Encode(testCase)
 			require.NoError(t, err, "Failed to encode %T: %v", testCase, testCase)
-			
+
 			// Decode
 			decoded, err := decoder.Decode(encoded)
 			require.NoError(t, err, "Failed to decode %T: %v", testCase, testCase)
-			
+
 			// Compare (handling type conversions)
 			switch expected := testCase.(type) {
 			case []int:
@@ -317,14 +317,14 @@ func TestPatternIntegration(t *testing.T) {
 	t.Run("Error propagation", func(t *testing.T) {
 		t.Skip("Depth tracking implementation needs more work - skipping for now")
 		encoder := NewConfigurableEncoder(WithMaxDepth(1))
-		
+
 		// This should fail due to depth limit
 		nested := map[string]any{
 			"level1": map[string]any{
 				"level2": "too deep",
 			},
 		}
-		
+
 		_, err := encoder.Encode(nested)
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "maximum nesting depth exceeded")
@@ -332,12 +332,12 @@ func TestPatternIntegration(t *testing.T) {
 
 	t.Run("UTF-8 validation", func(t *testing.T) {
 		decoder := NewConfigurableDecoder(WithUTF8Validation(true))
-		
+
 		// Test with valid UTF-8
 		validStr := "Hello, 世界! 🌍"
 		encoded, err := Encode(validStr)
 		require.NoError(t, err)
-		
+
 		decoded, err := decoder.Decode(encoded)
 		require.NoError(t, err)
 		assert.Equal(t, validStr, decoded)
@@ -351,7 +351,7 @@ func TestUnknownType(t *testing.T) {
 			TypeID: Type(99),
 			Data:   []byte{1, 2, 3, 4, 5},
 		}
-		
+
 		str := unknown.String()
 		assert.Contains(t, str, "99")
 		assert.Contains(t, str, "5") // Data length
@@ -368,7 +368,7 @@ func BenchmarkEncoderPattern(b *testing.B) {
 		"scores":  []int{95, 87, 92, 88, 91},
 		"details": map[string]any{"city": "New York", "country": "USA"},
 	}
-	
+
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		_, err := encoder.Encode(testData)
@@ -380,7 +380,7 @@ func BenchmarkEncoderPattern(b *testing.B) {
 
 func BenchmarkDecoderPattern(b *testing.B) {
 	decoder := NewConfigurableDecoder()
-	
+
 	// Prepare test data
 	testData := map[string]any{
 		"name":   "John Doe",
@@ -391,7 +391,7 @@ func BenchmarkDecoderPattern(b *testing.B) {
 	if err != nil {
 		b.Fatal(err)
 	}
-	
+
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		_, err := decoder.Decode(encoded)

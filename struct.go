@@ -5,12 +5,12 @@ package bogo
 func encodeStruct(v any) ([]byte, error) {
 	parser := NewParser("bogo") // Use "bogo" tags for legacy compatibility
 	fields := parser.ParseFields(v)
-	
+
 	// Convert FieldInfo map to map[string]any
 	objMap := make(map[string]any)
 	for key, field := range fields {
 		objMap[key] = field.Value
 	}
-	
+
 	return encodeObject(objMap)
 }
