@@ -109,13 +109,20 @@ func Decode(data []byte) (any, error) {
 		if err != nil {
 			return nil, err
 		}
-		return timestamp, nil
+		// Convert timestamp back to time.Time (in UTC to maintain consistency)
+		return time.UnixMilli(timestamp).UTC(), nil
 	case TypeByte:
 		byteVal, err := decodeByte(data[2:])
 		if err != nil {
 			return nil, err
 		}
 		return byteVal, nil
+	case TypeArray:
+		array, err := decodeArrayValue(data[2:])
+		if err != nil {
+			return nil, err
+		}
+		return array, nil
 	case TypeTypedArray:
 		typedArray, err := decodeTypedArray(data[2:])
 		if err != nil {

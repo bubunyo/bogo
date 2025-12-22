@@ -13,7 +13,7 @@ func TestStringEncodingDecoding(t *testing.T) {
 	data, err := Encode("abcd")
 	require.NoError(t, err)
 	assert.Equal(t, Version, data[0])                     // bogo version
-	assert.Equal(t, int(TypeString), int(data[1]))        // data type
+	assert.Equal(t, TypeString, data[1])                  // data type
 	assert.Equal(t, 1, int(data[2]))                      // space to hold single byte num
 	assert.Equal(t, 4, int(data[3]))                      // length of 4 chars
 	assert.Equal(t, []byte{'a', 'b', 'c', 'd'}, data[4:]) // length of 4 chars

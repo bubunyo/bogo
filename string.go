@@ -8,9 +8,7 @@ import (
 var stringEncodeError = errors.New("string encoding error")
 
 func encodeString(v string) ([]byte, error) {
-	if len(v) == 0 {
-		return []byte{byte(TypeString), 0}, nil
-	}
+	// Always use the standard encoding format, even for empty strings
 	lenInfoBytes, err := encodeUint(uint64(len(v)))
 	if err != nil {
 		return []byte{}, wrapError(stringEncodeError, err.Error())

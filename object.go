@@ -106,6 +106,11 @@ func decodeObject(data []byte) (map[string]any, error) {
 	
 	fieldsData := data[fieldsStart:fieldsEnd]
 	
+	// Handle empty object case
+	if fieldsSize == 0 {
+		return map[string]any{}, nil
+	}
+	
 	// Parse all field entries
 	result := make(map[string]any)
 	pos := 0
@@ -161,9 +166,15 @@ func decodeFieldEntry(data []byte) (key string, value any, bytesRead int, err er
 	
 	// Decode value
 	valueData := entryData[1+keyLen:]
-	value, err = decodeValue(valueData)
-	if err != nil {
-		return "", nil, 0, err
+	if len(valueData) == 0 {
+		// Handle zero-length value data as zero value based on context
+		// For now, return nil and let caller handle it
+		value = nil
+	} else {
+		value, err = decodeValue(valueData)
+		if err != nil {
+			return "", nil, 0, err
+		}
 	}
 	
 	return key, value, entryEnd, nil
