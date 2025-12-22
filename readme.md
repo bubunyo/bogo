@@ -330,6 +330,51 @@ func NewConfigurableEncoder(options ...EncoderOption) *Encoder
 func NewConfigurableDecoder(options ...DecoderOption) *Decoder
 ```
 
+## Zero Values vs Nil Values
+
+Bogo makes a clear distinction between zero values and nil values for robust data handling:
+
+### Zero Values (Type-Safe)
+Zero values are preserved with their type information:
+- `""` (empty string) → encodes as `TypeString` with 0 length → decodes as `""`
+- `0` → encodes as `TypeInt` → decodes as `int64(0)`
+- `false` → encodes as `TypeBoolFalse` → decodes as `false`
+- `[]any{}` → encodes as `TypeArray` with 0 elements → decodes as `[]any{}`
+- `time.Time{}` → encodes as `TypeTimestamp` → decodes as zero time
+
+### Nil Values (Null)
+Nil values are encoded uniformly as null:
+- `nil` → encodes as `TypeNull` → decodes as `nil`
+- `(*string)(nil)` → encodes as `TypeNull` → decodes as `nil`
+- `map[string]any(nil)` → encodes as `TypeNull` → decodes as `nil`
+
+### Example Usage
+
+```go
+data := map[string]any{
+    "zero_string": "",           // Will remain empty string after decode
+    "zero_number": 0,            // Will remain 0 after decode  
+    "zero_bool":   false,        // Will remain false after decode
+    "nil_value":   nil,          // Will remain nil after decode
+}
+
+encoded, _ := bogo.Marshal(data)
+var decoded map[string]any
+bogo.Unmarshal(encoded, &decoded)
+
+fmt.Println(decoded["zero_string"])  // "" (empty string, not nil)
+fmt.Println(decoded["zero_number"])  // 0 (zero, not nil)
+fmt.Println(decoded["zero_bool"])    // false (not nil)
+fmt.Println(decoded["nil_value"])    // nil
+```
+
+### Tri-State Booleans
+
+This enables tri-state boolean logic:
+- `true` → true value
+- `false` → false value  
+- `nil` → unknown/unset value
+
 ## Error Handling
 
 Bogo provides detailed error messages for debugging:

@@ -354,6 +354,68 @@ stats := statsEncoder.GetStats()
 2. **Version Evolution**: Major format changes require version increment
 3. **Backward Compatibility**: Older versions should remain parseable
 
+## Zero Values vs Null Values
+
+Bogo distinguishes between zero values and null values for all data types:
+
+### Zero Values
+Zero values are the default values for each data type when no explicit value is provided:
+- **String**: `""` (empty string, zero length)
+- **Integer**: `0` (numeric zero)
+- **Float**: `0.0` (floating-point zero)
+- **Boolean**: `false` (boolean false)
+- **Byte**: `0x00` (zero byte)
+- **Binary**: Empty binary data (zero length)
+- **Array**: Empty array (zero elements)
+- **Object**: Empty object (zero fields)
+- **Timestamp**: Epoch zero (1970-01-01 00:00:00 UTC)
+
+**Encoding**: Zero values are encoded using their respective type identifiers with appropriate data representation.
+**Decoding**: Zero values decode back to their language-specific zero/default values, preserving type information.
+
+### Null Values
+Null values represent the explicit absence of a value:
+- **Explicit null**: Language-specific null/nil/None representation
+- **Null pointers**: Uninitialized or explicitly null references
+- **Optional types**: Unset optional values
+
+**Encoding**: All null values are encoded as `TypeNull` (0x00).
+**Decoding**: All null values decode back to the language's null representation.
+
+### Encoding Examples
+
+| Value Type | Example Value | Encoded As | Decodes To |
+|------------|---------------|------------|------------|
+| Zero string | `""` | TypeString + 0 length | Empty string |
+| Zero integer | `0` | TypeInt + zero | Numeric zero |
+| Zero boolean | `false` | TypeBoolFalse | Boolean false |
+| Empty array | `[]` | TypeArray + 0 elements | Empty array |
+| Null value | `null` | TypeNull | Language null |
+
+### Object Field Handling
+
+Objects support both zero values and null values as field values:
+
+```
+{
+    "zero_string": "",           // TypeString with zero length
+    "zero_number": 0,            // TypeInt with value zero
+    "null_value": null           // TypeNull
+}
+```
+
+### Tri-State Logic
+
+This distinction enables tri-state logic for data types:
+- **True/Present**: Actual value (e.g., `true`, `"hello"`, `42`)
+- **False/Empty**: Zero value (e.g., `false`, `""`, `0`)  
+- **Unknown/Unset**: Null value (`null`)
+
+This is particularly useful for:
+- Optional fields that can be unset (null), empty (zero), or have a value
+- Boolean fields that can be true, false, or unknown
+- Numeric fields that can have a value, be zero, or be unspecified
+
 ## Security Considerations
 
 1. **Buffer Bounds**: All length fields must be validated
