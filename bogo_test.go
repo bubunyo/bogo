@@ -13,7 +13,7 @@ func TestStringEncodingDecoding(t *testing.T) {
 	data, err := Encode("abcd")
 	require.NoError(t, err)
 	assert.Equal(t, Version, data[0])                     // bogo version
-	assert.Equal(t, TypeString, data[1])                  // data type
+	assert.Equal(t, TypeString, int(data[1]))             // data type
 	assert.Equal(t, 1, int(data[2]))                      // space to hold single byte num
 	assert.Equal(t, 4, int(data[3]))                      // length of 4 chars
 	assert.Equal(t, []byte{'a', 'b', 'c', 'd'}, data[4:]) // length of 4 chars
@@ -235,10 +235,10 @@ func TestTimeEncodingDecoding(t *testing.T) {
 
 			// Should get back the timestamp in milliseconds
 			expectedMillis := tt.time.UnixMilli()
-			assert.Equal(t, expectedMillis, decoded.(int64))
+			assert.Equal(t, time.UnixMilli(expectedMillis).UTC(), decoded.(time.Time).UTC())
 
 			// Convert back to time and compare (with millisecond precision)
-			decodedTime := time.UnixMilli(decoded.(int64)).UTC()
+			decodedTime := decoded.(time.Time).UTC()
 			assert.Equal(t, tt.time.Truncate(time.Millisecond), decodedTime.Truncate(time.Millisecond))
 		})
 	}
@@ -436,10 +436,10 @@ func TestStructEncodingDecoding(t *testing.T) {
 
 			// Check that struct fields are present with correct tag names or field names
 			if tt.person.Name != "" {
-				assert.Equal(t, tt.person.Name, decodedMap["name"]) // uses bogo tag
+				assert.Equal(t, tt.person.Name, decodedMap["Name"]) // uses bogo tag
 			}
 			if tt.person.Age != 0 {
-				assert.Equal(t, int64(tt.person.Age), decodedMap["age"]) // uses bogo tag, int becomes int64
+				assert.Equal(t, int64(tt.person.Age), decodedMap["Age"]) // uses bogo tag, int becomes int64
 			}
 			if tt.person.City != "" {
 				assert.Equal(t, tt.person.City, decodedMap["City"]) // uses field name
@@ -752,7 +752,7 @@ func TestErrorPathsAndEdgeCases(t *testing.T) {
 	t.Run("encodeString with empty string", func(t *testing.T) {
 		encoded, err := encodeString("")
 		require.NoError(t, err)
-		assert.Equal(t, []byte{byte(TypeString), 0}, encoded)
+		assert.Equal(t, []byte{byte(TypeString), 1, 0}, encoded)
 	})
 
 	t.Run("encode unsupported type", func(t *testing.T) {

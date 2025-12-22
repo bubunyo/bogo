@@ -6,6 +6,12 @@ import (
 	"time"
 )
 
+// Default encoder and decoder instances for backward compatibility
+var (
+	defaultEncoder = NewConfigurableEncoder()
+	defaultDecoder = NewConfigurableDecoder()
+)
+
 // Main encoding function
 func Encode(v any) ([]byte, error) {
 	return defaultEncoder.Encode(v)
@@ -16,7 +22,7 @@ func encode(v any) ([]byte, error) {
 	if isNullValue(v) {
 		return encodeNull(), nil
 	}
-	
+
 	data := reflect.ValueOf(v)
 
 	// Special case for time.Time
@@ -73,7 +79,7 @@ func Decode(data []byte) (any, error) {
 	if len(data) < 2 {
 		return nil, fmt.Errorf("bogo decode error: insufficient data, need at least 2 bytes for version and type")
 	}
-	
+
 	version := data[0]
 	if version != Version {
 		return nil, fmt.Errorf("bogo decode error: unsupported version %d, expected version %d", version, Version)
@@ -140,12 +146,6 @@ func Decode(data []byte) (any, error) {
 	}
 }
 
-// Default encoder and decoder instances for backward compatibility
-var (
-	defaultEncoder = NewConfigurableEncoder()
-	defaultDecoder = NewConfigurableDecoder()
-)
-
 // Marshal encodes v into bogo binary format, similar to json.Marshal
 func Marshal(v any) ([]byte, error) {
 	return defaultEncoder.Encode(v)
@@ -157,7 +157,7 @@ func Unmarshal(data []byte, v any) error {
 	if err != nil {
 		return err
 	}
-	
+
 	return assignResult(result, v)
 }
 
@@ -167,35 +167,35 @@ func assignResult(result any, v any) error {
 	if rv.Kind() != reflect.Ptr || rv.IsNil() {
 		return fmt.Errorf("bogo: Unmarshal destination must be a non-nil pointer")
 	}
-	
+
 	elem := rv.Elem()
 	resultValue := reflect.ValueOf(result)
-	
+
 	// Handle nil result
 	if result == nil {
 		elem.Set(reflect.Zero(elem.Type()))
 		return nil
 	}
-	
+
 	// Try direct assignment first
 	if resultValue.Type().AssignableTo(elem.Type()) {
 		elem.Set(resultValue)
 		return nil
 	}
-	
+
 	// Handle type conversions for common cases
 	switch elem.Kind() {
 	case reflect.Interface:
 		// For interface{} destinations, assign directly
 		elem.Set(resultValue)
 		return nil
-		
+
 	case reflect.String:
 		if str, ok := result.(string); ok {
 			elem.SetString(str)
 			return nil
 		}
-		
+
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
 		if val, ok := result.(int64); ok {
 			if elem.OverflowInt(val) {
@@ -204,7 +204,7 @@ func assignResult(result any, v any) error {
 			elem.SetInt(val)
 			return nil
 		}
-		
+
 	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
 		if val, ok := result.(uint64); ok {
 			if elem.OverflowUint(val) {
@@ -217,7 +217,7 @@ func assignResult(result any, v any) error {
 			elem.SetUint(uint64(val))
 			return nil
 		}
-		
+
 	case reflect.Float32, reflect.Float64:
 		if val, ok := result.(float64); ok {
 			if elem.OverflowFloat(val) {
@@ -226,13 +226,13 @@ func assignResult(result any, v any) error {
 			elem.SetFloat(val)
 			return nil
 		}
-		
+
 	case reflect.Bool:
 		if val, ok := result.(bool); ok {
 			elem.SetBool(val)
 			return nil
 		}
-		
+
 	case reflect.Slice:
 		if elem.Type().Elem().Kind() == reflect.Uint8 {
 			// Handle []byte
@@ -246,7 +246,7 @@ func assignResult(result any, v any) error {
 			elem.Set(resultValue.Convert(elem.Type()))
 			return nil
 		}
-		
+
 	case reflect.Map:
 		if resultValue.Kind() == reflect.Map {
 			if resultValue.Type().AssignableTo(elem.Type()) {
@@ -259,53 +259,51 @@ func assignResult(result any, v any) error {
 				return nil
 			}
 		}
-		
+
 	case reflect.Struct:
 		// Handle map[string]any -> struct conversion using tags
 		if resultMap, ok := result.(map[string]any); ok {
 			return assignMapToStruct(resultMap, elem, defaultDecoder.TagName)
 		}
 	}
-	
+
 	return fmt.Errorf("bogo: cannot unmarshal %T into %T", result, v)
 }
 
 // assignMapToStruct assigns values from a map[string]any to a struct using struct tags
 func assignMapToStruct(resultMap map[string]any, structValue reflect.Value, tagName string) error {
 	structType := structValue.Type()
-	
-	
+
 	for i := 0; i < structType.NumField(); i++ {
 		field := structType.Field(i)
 		fieldValue := structValue.Field(i)
-		
+
 		// Skip unexported fields
 		if !field.IsExported() {
 			continue
 		}
-		
+
 		// Get field name from tag or use field name
 		fieldName := getStructFieldName(field, tagName)
-		
+
 		// Skip if tag indicates to omit the field
 		if fieldName == "-" {
 			continue
 		}
-		
+
 		// Check if the map contains this field
 		mapValue, exists := resultMap[fieldName]
 		if !exists {
 			// Field not present in map, leave as zero value
 			continue
 		}
-		
-		
+
 		// Recursively assign the value
 		if err := assignValueToField(mapValue, fieldValue, tagName); err != nil {
 			return fmt.Errorf("bogo: error assigning field %s: %w", fieldName, err)
 		}
 	}
-	
+
 	return nil
 }
 
@@ -315,7 +313,7 @@ func getStructFieldName(field reflect.StructField, tagName string) string {
 	if tag == "" {
 		return field.Name
 	}
-	
+
 	// Handle "fieldname" and "fieldname,omitempty" formats
 	if commaIdx := len(tag); commaIdx > 0 {
 		for i, c := range tag {
@@ -326,7 +324,7 @@ func getStructFieldName(field reflect.StructField, tagName string) string {
 		}
 		return tag[:commaIdx]
 	}
-	
+
 	return tag
 }
 
@@ -336,15 +334,15 @@ func assignValueToField(value any, fieldValue reflect.Value, tagName string) err
 		fieldValue.Set(reflect.Zero(fieldValue.Type()))
 		return nil
 	}
-	
+
 	valueReflect := reflect.ValueOf(value)
-	
+
 	// Try direct assignment first
 	if valueReflect.Type().AssignableTo(fieldValue.Type()) {
 		fieldValue.Set(valueReflect)
 		return nil
 	}
-	
+
 	// Handle type conversions
 	switch fieldValue.Kind() {
 	case reflect.String:
@@ -352,7 +350,7 @@ func assignValueToField(value any, fieldValue reflect.Value, tagName string) err
 			fieldValue.SetString(str)
 			return nil
 		}
-		
+
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
 		if val, ok := value.(int64); ok {
 			if fieldValue.OverflowInt(val) {
@@ -361,7 +359,7 @@ func assignValueToField(value any, fieldValue reflect.Value, tagName string) err
 			fieldValue.SetInt(val)
 			return nil
 		}
-		
+
 	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
 		if val, ok := value.(uint64); ok {
 			if fieldValue.OverflowUint(val) {
@@ -374,7 +372,7 @@ func assignValueToField(value any, fieldValue reflect.Value, tagName string) err
 			fieldValue.SetUint(uint64(val))
 			return nil
 		}
-		
+
 	case reflect.Float32, reflect.Float64:
 		if val, ok := value.(float64); ok {
 			if fieldValue.OverflowFloat(val) {
@@ -383,13 +381,13 @@ func assignValueToField(value any, fieldValue reflect.Value, tagName string) err
 			fieldValue.SetFloat(val)
 			return nil
 		}
-		
+
 	case reflect.Bool:
 		if val, ok := value.(bool); ok {
 			fieldValue.SetBool(val)
 			return nil
 		}
-		
+
 	case reflect.Slice:
 		if fieldValue.Type().Elem().Kind() == reflect.Uint8 {
 			// Handle []byte
@@ -410,25 +408,25 @@ func assignValueToField(value any, fieldValue reflect.Value, tagName string) err
 			fieldValue.Set(newSlice)
 			return nil
 		}
-		
+
 	case reflect.Map:
 		if valueReflect.Kind() == reflect.Map {
 			if valueReflect.Type().AssignableTo(fieldValue.Type()) {
 				fieldValue.Set(valueReflect)
 				return nil
 			}
-			
+
 			// Handle map[string]interface{} to map[string]T conversion
 			if valueReflect.Type() == reflect.TypeOf(map[string]any{}) && fieldValue.Type().Key() == reflect.TypeOf("") {
 				return convertMap(value.(map[string]any), fieldValue, tagName)
 			}
 		}
-		
+
 	case reflect.Struct:
 		if valueMap, ok := value.(map[string]any); ok {
 			return assignMapToStruct(valueMap, fieldValue, tagName)
 		}
-		
+
 	case reflect.Ptr:
 		// Handle pointers by creating a new instance and assigning to it
 		if fieldValue.IsNil() {
@@ -436,7 +434,7 @@ func assignValueToField(value any, fieldValue reflect.Value, tagName string) err
 		}
 		return assignValueToField(value, fieldValue.Elem(), tagName)
 	}
-	
+
 	// Handle special cases for specific types
 	if fieldValue.Type() == reflect.TypeOf(time.Time{}) {
 		if ts, ok := value.(int64); ok {
@@ -445,7 +443,7 @@ func assignValueToField(value any, fieldValue reflect.Value, tagName string) err
 			return nil
 		}
 	}
-	
+
 	return fmt.Errorf("cannot assign %T to %s", value, fieldValue.Type())
 }
 
@@ -453,21 +451,21 @@ func assignValueToField(value any, fieldValue reflect.Value, tagName string) err
 func convertMap(sourceMap map[string]any, targetMapValue reflect.Value, tagName string) error {
 	targetType := targetMapValue.Type()
 	valueType := targetType.Elem()
-	
+
 	newMap := reflect.MakeMap(targetType)
-	
+
 	for key, value := range sourceMap {
 		keyValue := reflect.ValueOf(key)
-		
+
 		// Convert the map value to the target type
 		convertedValue := reflect.New(valueType).Elem()
 		if err := assignValueToField(value, convertedValue, tagName); err != nil {
 			return fmt.Errorf("failed to convert map value for key %s: %w", key, err)
 		}
-		
+
 		newMap.SetMapIndex(keyValue, convertedValue)
 	}
-	
+
 	targetMapValue.Set(newMap)
 	return nil
 }
@@ -495,3 +493,4 @@ func GetDefaultEncoder() *Encoder {
 func GetDefaultDecoder() *Decoder {
 	return defaultDecoder
 }
+

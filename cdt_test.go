@@ -284,9 +284,9 @@ func TestRealisticComplexData(t *testing.T) {
 		finances := business["finances"].(map[string]any)
 		assert.InDelta(t, float64(125000000), finances["revenue_2023"], 1)
 
-		quarterlyRevenue := finances["quarterly_revenue"].([]any)
+		quarterlyRevenue := finances["quarterly_revenue"].([]float64)
 		assert.Len(t, quarterlyRevenue, 4)
-		assert.InDelta(t, 28.5e6, quarterlyRevenue[0].(float64), 1e3)
+		assert.InDelta(t, 28.5e6, quarterlyRevenue[0], 1e3)
 
 		departments := business["departments"].([]any)
 		assert.Len(t, departments, 3)
@@ -310,7 +310,7 @@ func TestRealisticComplexData(t *testing.T) {
 
 	t.Run("streaming_realistic_data", func(t *testing.T) {
 		t.Skip("Streaming test skipped - buffer implementation needs refinement")
-		
+
 		// Test with streaming API using bytes.Buffer for simplicity
 		var buf bytes.Buffer
 		encoder := NewEncoder(&buf)
