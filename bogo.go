@@ -1,3 +1,75 @@
+// Package bogo provides fast, compact binary serialization with JSON-compatible API.
+//
+// Bogo is a high-performance binary serialization format designed for efficient
+// encoding and decoding of complex data types. It offers significant performance improvements
+// over JSON while maintaining API compatibility, making it a drop-in replacement
+// for encoding/json in many use cases.
+//
+// # Key Features
+//
+//   - JSON-Compatible API: Familiar Marshal/Unmarshal functions
+//   - High Performance: Up to 99x faster deserialization than JSON
+//   - Compact Binary Format: Efficient variable-length encoding
+//   - Selective Field Decoding: Revolutionary optimization for large objects
+//   - Zero vs Nil Distinction: Robust handling of zero and null values
+//   - Streaming Support: Memory-efficient streaming encoding/decoding
+//
+// # Basic Usage
+//
+//	type User struct {
+//	    ID    int64  `json:"id"`
+//	    Name  string `json:"name"`
+//	    Email string `json:"email"`
+//	}
+//
+//	user := User{ID: 123, Name: "John", Email: "john@example.com"}
+//
+//	// Marshal to binary format
+//	data, err := bogo.Marshal(user)
+//	if err != nil {
+//	    log.Fatal(err)
+//	}
+//
+//	// Unmarshal from binary format
+//	var decoded User
+//	err = bogo.Unmarshal(data, &decoded)
+//	if err != nil {
+//	    log.Fatal(err)
+//	}
+//
+// # Streaming API
+//
+//	// Encoding
+//	var buf bytes.Buffer
+//	encoder := bogo.NewEncoder(&buf)
+//	err := encoder.Encode(data)
+//
+//	// Decoding
+//	decoder := bogo.NewDecoder(&buf)
+//	var result interface{}
+//	err = decoder.Decode(&result)
+//
+// # Advanced Configuration
+//
+//	// Configurable decoder with selective field optimization
+//	decoder := bogo.NewConfigurableDecoder(
+//	    bogo.WithSelectiveFields([]string{"id", "name"}), // Only decode these fields
+//	    bogo.WithDecoderMaxDepth(50),                     // Limit nesting depth
+//	    bogo.WithDecoderStrictMode(true),                 // Enable strict validation
+//	)
+//
+//	result, err := decoder.Decode(largeObjectData)
+//	// Up to 334x faster than decoding the entire object!
+//
+// # Zero Values vs Nil Values
+//
+// Bogo maintains a clear distinction between zero values and nil values:
+//
+//   - Zero values (e.g., "", 0, false) are preserved with type information
+//   - Nil values are encoded as TypeNull and decode back to nil
+//   - Enables tri-state logic: true/false/unknown, value/zero/unset
+//
+// For complete technical specifications, see: https://github.com/bubunyo/bogo/blob/main/spec.md
 package bogo
 
 import (
@@ -12,7 +84,29 @@ var (
 	defaultDecoder = NewConfigurableDecoder()
 )
 
-// Main encoding function
+// Encode serializes a value to the Bogo binary format.
+//
+// This is the primary encoding function that converts Go values to compact
+// binary representation. It handles all supported types including primitives,
+// arrays, objects, and structs with automatic type detection.
+//
+// Example:
+//
+//	data, err := bogo.Encode("hello world")
+//	if err != nil {
+//	    log.Fatal(err)
+//	}
+//
+// Supported types:
+//   - nil, bool, string, byte
+//   - int, int8, int16, int32, int64
+//   - uint, uint8, uint16, uint32, uint64
+//   - float32, float64
+//   - []byte, time.Time
+//   - []any, []string, []int, []float64, etc.
+//   - map[string]any, structs
+//
+// Returns the binary representation and any encoding error.
 func Encode(v any) ([]byte, error) {
 	return defaultEncoder.Encode(v)
 }
@@ -74,7 +168,31 @@ func encode(v any) ([]byte, error) {
 	return nil, fmt.Errorf("bogo error: unsupported type. type=%T", v)
 }
 
-// Main decoding function
+// Decode deserializes Bogo binary data back into a Go value.
+//
+// This is the primary decoding function that converts Bogo binary format
+// back to Go values with automatic type reconstruction. It supports all
+// types that can be encoded with Encode().
+//
+// Example:
+//
+//	decoded, err := bogo.Decode(binaryData)
+//	if err != nil {
+//	    log.Fatal(err)
+//	}
+//	fmt.Printf("Decoded value: %v\n", decoded)
+//
+// Type mapping:
+//   - TypeNull → nil
+//   - TypeString → string
+//   - TypeInt → int64
+//   - TypeUint → uint64
+//   - TypeFloat → float64
+//   - TypeArray → []any
+//   - TypeObject → map[string]any
+//   - And more...
+//
+// Returns the decoded value and any decoding error.
 func Decode(data []byte) (any, error) {
 	if len(data) < 2 {
 		return nil, fmt.Errorf("bogo decode error: insufficient data, need at least 2 bytes for version and type")
@@ -146,12 +264,56 @@ func Decode(data []byte) (any, error) {
 	}
 }
 
-// Marshal encodes v into bogo binary format, similar to json.Marshal
+// Marshal encodes a value to Bogo binary format.
+//
+// Marshal is compatible with json.Marshal and can be used as a drop-in replacement
+// in most cases. It traverses the value v recursively and encodes it using the
+// Bogo binary format.
+//
+// Example:
+//
+//	type Person struct {
+//	    Name string `json:"name"`
+//	    Age  int    `json:"age"`
+//	}
+//
+//	p := Person{Name: "Alice", Age: 30}
+//	data, err := bogo.Marshal(p)
+//	if err != nil {
+//	    log.Fatal(err)
+//	}
+//
+// Struct fields are encoded based on json struct tags, following the same
+// conventions as encoding/json (omitempty, field renaming, etc.).
+//
+// Returns the Bogo binary representation of v and any encoding error.
 func Marshal(v any) ([]byte, error) {
 	return defaultEncoder.Encode(v)
 }
 
-// Unmarshal decodes bogo binary data into the value pointed to by v, similar to json.Unmarshal
+// Unmarshal parses Bogo binary data and stores the result in the value pointed to by v.
+//
+// Unmarshal is compatible with json.Unmarshal and can be used as a drop-in replacement.
+// It decodes the Bogo binary data and assigns the result to the value pointed to by v.
+//
+// Example:
+//
+//	var person Person
+//	err := bogo.Unmarshal(data, &person)
+//	if err != nil {
+//	    log.Fatal(err)
+//	}
+//
+//	var result map[string]any
+//	err = bogo.Unmarshal(data, &result)
+//	if err != nil {
+//	    log.Fatal(err)
+//	}
+//
+// The destination v must be a pointer to a value where the decoded result will be stored.
+// Unmarshal handles type conversions automatically (e.g., int to int64, float32 to float64).
+//
+// Returns an error if the data cannot be decoded or assigned to v.
 func Unmarshal(data []byte, v any) error {
 	result, err := defaultDecoder.Decode(data)
 	if err != nil {

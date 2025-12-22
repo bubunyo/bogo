@@ -1,7 +1,7 @@
 # Bogo Binary Serialization Format Specification
 
 **Version:** 0.0  
-**Date:** December 2024  
+**Date:** December 2025
 **Authors:** Bogo Development Team  
 
 ## Table of Contents
@@ -450,7 +450,7 @@ This is particularly useful for:
 
 ## Version History
 
-### Version 0.0 (December 2024)
+### Version 0.0 (December 2025)
 - Initial specification
 - Core type system implementation
 - Variable-length encoding
