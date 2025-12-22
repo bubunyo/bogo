@@ -1,10 +1,10 @@
 package bogo
 
 import (
-	"testing"
-	"time"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"testing"
+	"time"
 )
 
 func TestZeroVsNilValues(t *testing.T) {
@@ -19,7 +19,7 @@ func TestZeroVsNilValues(t *testing.T) {
 		{"nil interface", (*interface{})(nil), true, "nil interface pointer"},
 		{"nil map", map[string]any(nil), true, "nil map"},
 		{"nil slice", []any(nil), true, "nil slice"},
-		
+
 		// Zero values - should encode with their types and decode back as zero values
 		{"zero string", "", false, "empty string should remain empty string, not nil"},
 		{"zero int", int(0), false, "zero int should remain 0, not nil"},
@@ -34,7 +34,7 @@ func TestZeroVsNilValues(t *testing.T) {
 		{"empty slice", []any{}, false, "empty slice should remain empty, not nil"},
 		{"empty map", map[string]any{}, false, "empty map should remain empty, not nil"},
 		{"zero time", time.Time{}, false, "zero time should remain zero time, not nil"},
-		
+
 		// Non-zero values - should encode and decode correctly
 		{"non-zero string", "hello", false, "non-zero string"},
 		{"non-zero int", int(42), false, "non-zero int"},
@@ -42,6 +42,7 @@ func TestZeroVsNilValues(t *testing.T) {
 		{"non-zero float", 3.14, false, "non-zero float"},
 		{"non-empty slice", []any{1, 2, 3}, false, "non-empty slice"},
 		{"non-empty map", map[string]any{"key": "value"}, false, "non-empty map"},
+		{"non-empty map", map[string]any{"key": nil}, false, "non-empty map with nil value"},
 	}
 
 	for _, tt := range tests {
@@ -68,7 +69,7 @@ func TestZeroVsNilValues(t *testing.T) {
 				case int64:
 					assert.Equal(t, v, decoded, "%s should decode to same int64", tt.description)
 				case uint:
-					// Uints decode as uint64 in bogo  
+					// Uints decode as uint64 in bogo
 					assert.Equal(t, uint64(v), decoded, "%s should decode to same uint64", tt.description)
 				case uint64:
 					assert.Equal(t, v, decoded, "%s should decode to same uint64", tt.description)
@@ -139,7 +140,7 @@ func TestZeroVsNilInObjects(t *testing.T) {
 			},
 		},
 		{
-			"all zero values", 
+			"all zero values",
 			map[string]any{
 				"zero_string": "",
 				"zero_int":    0,
@@ -171,7 +172,7 @@ func TestZeroVsNilInObjects(t *testing.T) {
 					assert.Nil(t, actualValue, "Nil value for key %s should remain nil", key)
 				} else {
 					assert.NotNil(t, actualValue, "Non-nil value for key %s should not become nil", key)
-					
+
 					// Type-specific comparisons (accounting for bogo type conversions)
 					switch v := expectedValue.(type) {
 					case int:
@@ -220,3 +221,4 @@ func TestNilTypedValues(t *testing.T) {
 		})
 	}
 }
+
