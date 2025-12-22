@@ -74,12 +74,8 @@ func (p *Parser) extractFields(v reflect.Value, t reflect.Type, result *map[stri
 		// Determine the bogo type for this field
 		fieldType := p.getBogoType(field.Type)
 
-		// Handle nested structs by recursion (but don't add them to current level)
-		if fieldValue.Kind() == reflect.Struct && field.Type != reflect.TypeOf(time.Time{}) {
-			// For nested structs, we don't add them directly but may process their fields
-			// This depends on the encoding strategy
-			continue
-		}
+		// Note: We handle structs as objects, not as special cases
+		// time.Time is already handled by getBogoType returning TypeTimestamp
 
 		// Add field to result
 		(*result)[fieldName] = FieldInfo{
