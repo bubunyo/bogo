@@ -1,0 +1,62 @@
+name: Performance Monitoring
+
+# Run on main pushes only - track performance trends over time
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch: # Allow manual trigger
+
+jobs:
+  benchmark:
+    name: Benchmark Tracking
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.24'
+
+    - name: Run benchmarks
+      run: |
+        # Run benchmarks multiple times for statistical significance
+        go test -bench=. -benchmem -count=5 ./... > benchmark_results.txt
+        
+        # Extract key metrics
+        echo "## Benchmark Results" >> $GITHUB_STEP_SUMMARY
+        echo '```' >> $GITHUB_STEP_SUMMARY
+        cat benchmark_results.txt >> $GITHUB_STEP_SUMMARY
+        echo '```' >> $GITHUB_STEP_SUMMARY
+
+    - name: Store benchmark results
+      uses: benchmark-action/github-action-benchmark@v1
+      with:
+        tool: 'go'
+        output-file-path: benchmark_results.txt
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        auto-push: true
+        comment-on-alert: true
+        alert-threshold: '150%'  # Alert if performance degrades by 50%
+        fail-on-alert: false     # Don't fail the build, just alert
+
+    - name: Profile memory usage
+      run: |
+        # Generate memory profile
+        go test -memprofile=mem.prof -bench=BenchmarkMarshal -run=^$ ./...
+        go tool pprof -text -nodecount=10 mem.prof > memory_profile.txt
+        
+        # Generate CPU profile  
+        go test -cpuprofile=cpu.prof -bench=BenchmarkMarshal -run=^$ ./...
+        go tool pprof -text -nodecount=10 cpu.prof > cpu_profile.txt
+
+    - name: Upload profiles
+      uses: actions/upload-artifact@v3
+      with:
+        name: performance-profiles-${{ github.sha }}
+        path: |
+          benchmark_results.txt
+          memory_profile.txt
+          cpu_profile.txt
+          *.prof
+        retention-days: 30
