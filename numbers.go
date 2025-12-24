@@ -37,6 +37,8 @@ func encodeNum(v any) ([]byte, error) {
 	}
 }
 
+// todo: this path is used in all encoding paths. oportunity to optimize.
+// check profiles to confirm, allocs per op
 func encodeUint(data uint64) ([]byte, error) {
 	result := make([]byte, binary.MaxVarintLen64+2)
 	result[0] = byte(TypeUint)
@@ -99,6 +101,7 @@ func encodeFloat(f float64) ([]byte, error) {
 	return buf[:n+4], nil
 }
 
+// todo: use a different encoding scheme that does not loose precision
 func decodeFloat(data []byte) (float64, error) {
 	if len(data) == 0 {
 		return 0, fmt.Errorf("empty input")

@@ -81,6 +81,13 @@ func (e *Encoder) Encode(v any) ([]byte, error) {
 		return nil, err
 	}
 
+	// todo: can i optimize by definiting the length of the slice before i copy into it?
+	// can i estimate the space occupied by a decoded slice by looking at the current
+	// memory occupied by the current data? If i can i can allocate an array with a max capacity
+	// ensuring the the decoded data is always going to be smaller and based on the used length, we report that only
+	// this might not work due to the fact that inner types are decoded first and we might know
+	//	their position is the backing array. but still work a short. the risk is that, we might need to
+	// padd, tradding size for speed
 	return append([]byte{Version}, res...), nil
 }
 
@@ -390,7 +397,7 @@ func (e *Encoder) encodeReflectedArray(rv reflect.Value) ([]byte, error) {
 	length := rv.Len()
 	arr := make([]any, length)
 
-	for i := 0; i < length; i++ {
+	for i := range length {
 		arr[i] = rv.Index(i).Interface()
 	}
 

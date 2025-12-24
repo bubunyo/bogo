@@ -1,7 +1,6 @@
 package bogo
 
 import (
-	"errors"
 	"fmt"
 	"reflect"
 )
@@ -60,7 +59,11 @@ func isNullValue(v any) bool {
 	// Handle nil pointers, slices, maps, etc.
 	if data.CanInterface() && data.Kind() != reflect.Invalid {
 		switch data.Kind() {
-		case reflect.Ptr, reflect.Interface, reflect.Slice, reflect.Map, reflect.Chan, reflect.Func:
+		case reflect.Ptr, reflect.Interface,
+			reflect.Slice, reflect.Map,
+
+			// we should never get here add for completeness sakes
+			reflect.Chan, reflect.Func:
 			if data.IsNil() {
 				return true
 			}
@@ -91,12 +94,6 @@ func isZeroValue(v any) bool {
 		return false
 	}
 }
-
-// Common error handling
-var (
-	basicEncodeError = errors.New("basic type encoding error")
-	basicDecodeError = errors.New("basic type decoding error")
-)
 
 func wrapError(err1 error, err2 ...string) error {
 	if len(err2) == 0 {

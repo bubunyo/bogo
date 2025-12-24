@@ -7,13 +7,14 @@ import (
 	"github.com/bubunyo/bogo"
 )
 
+type User struct {
+	ID    int64  `json:"id"`
+	Name  string `json:"name"`
+	Email string `json:"email"`
+	Age   int    `json:"age"`
+}
+
 func Example() {
-	type User struct {
-		ID    int64  `json:"id"`
-		Name  string `json:"name"`
-		Email string `json:"email"`
-		Age   int    `json:"age"`
-	}
 
 	// Create a user
 	user := User{
@@ -52,10 +53,10 @@ func ExampleEncoder() {
 
 	// Create some test data
 	testData := map[string]any{
-		"id":      int64(123),
-		"name":    "Alice",
-		"email":   "alice@example.com", // This will be skipped
-		"profile": map[string]any{      // This will be skipped
+		"id":    int64(123),
+		"name":  "Alice",
+		"email": "alice@example.com", // This will be skipped
+		"profile": map[string]any{ // This will be skipped
 			"bio":      "Long biography...",
 			"settings": map[string]any{"theme": "dark"},
 		},
@@ -77,3 +78,4 @@ func ExampleEncoder() {
 	fmt.Printf("Selective decode - ID: %v, Name: %v\n", resultMap["id"], resultMap["name"])
 	// Output: Selective decode - ID: 123, Name: Alice
 }
+
