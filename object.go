@@ -224,20 +224,20 @@ func decodeValue(data []byte) (any, error) {
 			return nil, err
 		}
 		return timestamp, nil
-	case TypeArray:
-		// Decode array within object
-		array, err := decodeArrayValue(data[1:])
+	case TypeUntypedList:
+		// Decode list within object
+		list, err := decodeListValue(data[1:])
 		if err != nil {
 			return nil, err
 		}
-		return array, nil
-	case TypeTypedArray:
-		// Decode typed array within object
-		typedArray, err := decodeTypedArray(data[1:])
+		return list, nil
+	case TypeTypedList:
+		// Decode typed list within object
+		typedList, err := decodeTypedList(data[1:])
 		if err != nil {
 			return nil, err
 		}
-		return typedArray, nil
+		return typedList, nil
 	case TypeObject:
 		// Recursive object decoding
 		obj, err := decodeObject(data[1:])
@@ -250,43 +250,43 @@ func decodeValue(data []byte) (any, error) {
 	}
 }
 
-// decodeArrayValue decodes an array and returns the result as any
-func decodeArrayValue(data []byte) (any, error) {
+// decodeListValue decodes a list and returns the result as any
+func decodeListValue(data []byte) (any, error) {
 	if len(data) == 0 {
 		return []any{}, nil
 	}
 
-	// Get array size
+	// Get list size
 	sizeLen := int(data[0])
 	if len(data) < sizeLen+1 {
-		return nil, errors.New("insufficient data for array size")
+		return nil, errors.New("insufficient data for list size")
 	}
 
-	arraySize, err := decodeUint(data[1 : 1+sizeLen])
+	listSize, err := decodeUint(data[1 : 1+sizeLen])
 	if err != nil {
 		return nil, err
 	}
 
-	arrayStart := 1 + sizeLen
-	arrayEnd := arrayStart + int(arraySize)
-	if len(data) < arrayEnd {
-		return nil, errors.New("insufficient data for array content")
+	listStart := 1 + sizeLen
+	listEnd := listStart + int(listSize)
+	if len(data) < listEnd {
+		return nil, errors.New("insufficient data for list content")
 	}
 
-	arrayData := data[arrayStart:arrayEnd]
+	listData := data[listStart:listEnd]
 
-	// Parse all array elements
+	// Parse all list elements
 	result := []any{}
 	pos := 0
 
-	for pos < len(arrayData) {
+	for pos < len(listData) {
 		// Find the end of the current element by decoding its header
-		if pos >= len(arrayData) {
+		if pos >= len(listData) {
 			break
 		}
 
 		// Decode the element
-		element, err := decodeValue(arrayData[pos:])
+		element, err := decodeValue(listData[pos:])
 		if err != nil {
 			return nil, err
 		}
@@ -294,7 +294,7 @@ func decodeArrayValue(data []byte) (any, error) {
 		result = append(result, element)
 
 		// Find the size of this encoded element to advance position
-		elementSize, err := getElementSize(arrayData[pos:])
+		elementSize, err := getElementSize(listData[pos:])
 		if err != nil {
 			return nil, err
 		}
@@ -352,32 +352,32 @@ func getElementSize(data []byte) (int, error) {
 		return 2 + sizeLen + int(blobSize), nil
 	case TypeTimestamp:
 		return 9, nil // 1 + 8 bytes for timestamp
-	case TypeArray:
+	case TypeUntypedList:
 		if len(data) < 2 {
-			return 0, errors.New("insufficient data for array size")
+			return 0, errors.New("insufficient data for list size")
 		}
 		sizeLen := int(data[1])
 		if len(data) < 2+sizeLen {
-			return 0, errors.New("insufficient data for array size value")
+			return 0, errors.New("insufficient data for list size value")
 		}
-		arraySize, err := decodeUint(data[2 : 2+sizeLen])
+		listSize, err := decodeUint(data[2 : 2+sizeLen])
 		if err != nil {
 			return 0, err
 		}
-		return 2 + sizeLen + int(arraySize), nil
-	case TypeTypedArray:
+		return 2 + sizeLen + int(listSize), nil
+	case TypeTypedList:
 		if len(data) < 2 {
-			return 0, errors.New("insufficient data for typed array size")
+			return 0, errors.New("insufficient data for typed list size")
 		}
 		sizeLen := int(data[1])
 		if len(data) < 2+sizeLen {
-			return 0, errors.New("insufficient data for typed array size value")
+			return 0, errors.New("insufficient data for typed list size value")
 		}
-		arraySize, err := decodeUint(data[2 : 2+sizeLen])
+		listSize, err := decodeUint(data[2 : 2+sizeLen])
 		if err != nil {
 			return 0, err
 		}
-		return 2 + sizeLen + int(arraySize), nil
+		return 2 + sizeLen + int(listSize), nil
 	case TypeObject:
 		if len(data) < 2 {
 			return 0, errors.New("insufficient data for object size")

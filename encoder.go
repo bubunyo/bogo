@@ -11,9 +11,9 @@ import (
 // Encoder provides structured encoding with configurable options
 type Encoder struct {
 	// Configuration options
-	MaxDepth        int    // Maximum nesting depth for objects/arrays (0 = unlimited)
+	MaxDepth        int    // Maximum nesting depth for objects/lists (0 = unlimited)
 	StrictMode      bool   // Strict type checking and validation
-	CompactArrays   bool   // Use typed arrays when beneficial
+	CompactLists   bool   // Use typed lists when beneficial
 	ValidateStrings bool   // Validate UTF-8 encoding in strings
 	TagName         string // Struct tag name to use (default: "json" for compatibility)
 
@@ -29,7 +29,7 @@ func NewConfigurableEncoder(options ...EncoderOption) *Encoder {
 	e := &Encoder{
 		MaxDepth:        100, // Default max depth
 		StrictMode:      false,
-		CompactArrays:   true,
+		CompactLists:   true,
 		ValidateStrings: true,
 		TagName:         "json", // Default to json tag for compatibility
 	}
@@ -54,9 +54,9 @@ func WithStrictMode(strict bool) EncoderOption {
 	}
 }
 
-func WithCompactArrays(compact bool) EncoderOption {
+func WithCompactLists(compact bool) EncoderOption {
 	return func(e *Encoder) {
-		e.CompactArrays = compact
+		e.CompactLists = compact
 	}
 }
 
@@ -83,10 +83,10 @@ func (e *Encoder) Encode(v any) ([]byte, error) {
 
 	// todo: can i optimize by definiting the length of the slice before i copy into it?
 	// can i estimate the space occupied by a decoded slice by looking at the current
-	// memory occupied by the current data? If i can i can allocate an array with a max capacity
+	// memory occupied by the current data? If i can i can allocate a list with a max capacity
 	// ensuring the the decoded data is always going to be smaller and based on the used length, we report that only
 	// this might not work due to the fact that inner types are decoded first and we might know
-	//	their position is the backing array. but still work a short. the risk is that, we might need to
+	//	their position is the backing list. but still work a short. the risk is that, we might need to
 	// padd, tradding size for speed
 	return append([]byte{Version}, res...), nil
 }
@@ -135,34 +135,34 @@ func (e *Encoder) encode(v any) ([]byte, error) {
 		return encodeTimestamp(val.UnixMilli())
 
 	case []string:
-		if e.CompactArrays {
-			return e.encodeTypedArrayWithDepth(val)
+		if e.CompactLists {
+			return e.encodeTypedListWithDepth(val)
 		}
-		return e.encodeArrayWithDepth(val)
+		return e.encodeListWithDepth(val)
 
 	case []int:
-		if e.CompactArrays {
-			return e.encodeTypedArrayWithDepth(val)
+		if e.CompactLists {
+			return e.encodeTypedListWithDepth(val)
 		}
-		return e.encodeArrayWithDepth(val)
+		return e.encodeListWithDepth(val)
 
 	case []int64:
-		if e.CompactArrays {
-			return e.encodeTypedArrayWithDepth(val)
+		if e.CompactLists {
+			return e.encodeTypedListWithDepth(val)
 		}
-		return e.encodeArrayWithDepth(val)
+		return e.encodeListWithDepth(val)
 
 	case []float64:
-		if e.CompactArrays {
-			return e.encodeTypedArrayWithDepth(val)
+		if e.CompactLists {
+			return e.encodeTypedListWithDepth(val)
 		}
-		return e.encodeArrayWithDepth(val)
+		return e.encodeListWithDepth(val)
 
 	case []bool:
-		if e.CompactArrays {
-			return e.encodeTypedArrayWithDepth(val)
+		if e.CompactLists {
+			return e.encodeTypedListWithDepth(val)
 		}
-		return e.encodeArrayWithDepth(val)
+		return e.encodeListWithDepth(val)
 
 	case map[string]any:
 		return e.encodeObjectWithDepth(val)
@@ -173,20 +173,20 @@ func (e *Encoder) encode(v any) ([]byte, error) {
 	}
 }
 
-// encodeArrayWithDepth encodes arrays with depth tracking
-func (e *Encoder) encodeArrayWithDepth(v any) ([]byte, error) {
+// encodeListWithDepth encodes lists with depth tracking
+func (e *Encoder) encodeListWithDepth(v any) ([]byte, error) {
 	e.depth++
 	defer func() { e.depth-- }()
 
-	return encodeArray(v)
+	return encodeList(v)
 }
 
-// encodeTypedArrayWithDepth encodes typed arrays with depth tracking
-func (e *Encoder) encodeTypedArrayWithDepth(v any) ([]byte, error) {
+// encodeTypedListWithDepth encodes typed lists with depth tracking
+func (e *Encoder) encodeTypedListWithDepth(v any) ([]byte, error) {
 	e.depth++
 	defer func() { e.depth-- }()
 
-	return encodeTypedArray(v)
+	return encodeTypedList(v)
 }
 
 // encodeObjectWithDepth encodes objects with depth tracking
@@ -298,7 +298,7 @@ func (e *Encoder) encodeReflected(v any) ([]byte, error) {
 	case reflect.Struct:
 		return e.encodeStruct(rv, rt)
 	case reflect.Slice, reflect.Array:
-		return e.encodeReflectedArray(rv)
+		return e.encodeReflectedList(rv)
 	case reflect.Map:
 		return e.encodeReflectedMap(rv)
 	case reflect.Interface:
@@ -392,8 +392,8 @@ func (e *Encoder) isZeroValue(v reflect.Value) bool {
 	return false
 }
 
-// encodeReflectedArray handles slice/array encoding via reflection
-func (e *Encoder) encodeReflectedArray(rv reflect.Value) ([]byte, error) {
+// encodeReflectedList handles slice/list encoding via reflection
+func (e *Encoder) encodeReflectedList(rv reflect.Value) ([]byte, error) {
 	length := rv.Len()
 	arr := make([]any, length)
 
@@ -401,7 +401,7 @@ func (e *Encoder) encodeReflectedArray(rv reflect.Value) ([]byte, error) {
 		arr[i] = rv.Index(i).Interface()
 	}
 
-	return e.encodeArrayWithDepth(arr)
+	return e.encodeListWithDepth(arr)
 }
 
 // encodeReflectedMap handles map encoding via reflection

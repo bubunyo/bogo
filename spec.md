@@ -74,8 +74,8 @@ Bogo is a compact, efficient binary serialization format designed for high-perfo
 | `0x07` | `TypeFloat` | IEEE 754 floating point | `[SizeLen:1][Value:Bytes]` |
 | `0x08` | `TypeBlob` | Binary data ([]byte) | `[SizeLen:1][Size:VarInt][Data:Bytes]` |
 | `0x09` | `TypeTimestamp` | 64-bit timestamp (ms) | `[Timestamp:8]` (little-endian) |
-| `0x0A` | `TypeArray` | Heterogeneous array | `[SizeLen:1][TotalSize:VarInt][Elements:Variable]` |
-| `0x0B` | `TypeTypedArray` | Homogeneous array | `[ElementType:1][Count:VarInt][Elements:Variable]` |
+| `0x0A` | `TypeUntypedList` | Heterogeneous list | `[SizeLen:1][TotalSize:VarInt][Elements:Variable]` |
+| `0x0B` | `TypeTypedList` | Homogeneous list | `[ElementType:1][Count:VarInt][Elements:Variable]` |
 | `0x0C` | `TypeObject` | Key-value map/object | `[SizeLen:1][TotalSize:VarInt][FieldEntries:Variable]` |
 
 ## Encoding Specifications
@@ -216,7 +216,7 @@ Each field entry:
 - Variable-length based on precision requirements
 
 #### 7. Blob (`TypeBlob`)
-**Purpose**: Binary data (byte arrays)
+**Purpose**: Binary data (byte lists)
 
 **Structure:**
 ```
@@ -240,21 +240,21 @@ Each field entry:
 **Total Size**: 10 bytes  
 **Encoding**: Little-endian 64-bit signed integer (milliseconds since Unix epoch)
 
-#### 9. Array (`TypeArray`)
-**Purpose**: Heterogeneous arrays with mixed types
+#### 9. List (`TypeUntypedList`)
+**Purpose**: Heterogeneous lists with mixed types
 
 **Structure:**
 ```
 ┌─────────────┬─────────────┬─────────────────┬─────────────────┐
-│   Version   │ TypeArray   │   Length Info   │   Array Data    │
+│   Version   │TypeUntypedList│   Length Info   │   List Data     │
 │    0x00     │    0x0A     │   (VarInt)      │   (Elements)    │
 └─────────────┴─────────────┴─────────────────┴─────────────────┘
 ```
 
-**Array Data**: Sequence of encoded elements (each with full type headers)
+**List Data**: Sequence of encoded elements (each with full type headers)
 
-#### 10. Typed Array (`TypeTypedArray`)
-**Purpose**: Homogeneous arrays optimized for same-type elements
+#### 10. Typed List (`TypeTypedList`)
+**Purpose**: Homogeneous lists optimized for same-type elements
 
 **Structure:**
 ```
@@ -308,7 +308,7 @@ data := map[string]any{
 01 07 03 61 67 65 05 01 19 01 09 06 61 63 74 69 76 65 01
 ```
 
-### Example 2: Typed Array
+### Example 2: Typed List
 **Go Code:**
 ```go
 numbers := []int{1, 2, 3, 4, 5}
@@ -342,7 +342,7 @@ value, err := bogo.Unmarshal(data)
 encoder := bogo.NewEncoder(
     bogo.WithMaxDepth(100),
     bogo.WithStrictMode(true),
-    bogo.WithCompactArrays(true),
+    bogo.WithCompactLists(true),
 )
 data, err := encoder.Encode(value)
 
@@ -391,7 +391,7 @@ Zero values are the default values for each data type when no explicit value is 
 - **Boolean**: `false` (boolean false)
 - **Byte**: `0x00` (zero byte)
 - **Binary**: Empty binary data (zero length)
-- **Array**: Empty array (zero elements)
+- **List**: Empty list (zero elements)
 - **Object**: Empty object (zero fields)
 - **Timestamp**: Epoch zero (1970-01-01 00:00:00 UTC)
 
@@ -414,7 +414,7 @@ Null values represent the explicit absence of a value:
 | Zero string | `""` | TypeString + 0 length | Empty string |
 | Zero integer | `0` | TypeInt + zero | Numeric zero |
 | Zero boolean | `false` | TypeBoolFalse | Boolean false |
-| Empty array | `[]` | TypeArray + 0 elements | Empty array |
+| Empty list | `[]` | TypeUntypedList + 0 elements | Empty list |
 | Null value | `null` | TypeNull | Language null |
 
 ### Object Field Handling
@@ -445,7 +445,7 @@ This is particularly useful for:
 
 1. **Buffer Bounds**: All length fields must be validated
 2. **Resource Limits**: Implement reasonable size limits
-3. **Recursion**: Limit nesting depth for objects/arrays
+3. **Recursion**: Limit nesting depth for objects/lists
 4. **Memory**: Prevent excessive memory allocation
 
 ## Version History
@@ -454,7 +454,7 @@ This is particularly useful for:
 - Initial specification
 - Core type system implementation
 - Variable-length encoding
-- Object and array support
+- Object and list support
 
 ---
 

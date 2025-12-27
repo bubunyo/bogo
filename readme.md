@@ -9,7 +9,7 @@ Bogo is ideal when you need JSON-like simplicity with binary format performance,
 - **JSON-Compatible API**: Drop-in replacement for `encoding/json` with familiar `Marshal`/`Unmarshal` functions
 - **High Performance**: Up to 3x faster deserialization compared to JSON
 - **Compact Binary Format**: Efficient variable-length encoding reduces payload size
-- **Comprehensive Type Support**: Supports all primitive types plus arrays, objects, and binary data
+- **Comprehensive Type Support**: Supports all primitive types plus lists, objects, and binary data
 - **Streaming API**: Memory-efficient streaming encoding and decoding
 - **Configurable Validation**: Optional UTF-8 validation, depth limits, and size constraints
 - **Field-Specific Optimization**: Revolutionary selective field decoding with up to 334x performance improvement and 113x memory reduction
@@ -27,8 +27,8 @@ Bogo is ideal when you need JSON-like simplicity with binary format performance,
 | `float32`, `float64` | TypeFloat | IEEE 754 floating-point numbers |
 | `[]byte` | TypeBlob | Binary data with length prefix |
 | `time` | TypeTimestamp | Unix timestamps |
-| `[]any{}` | TypeArray | Heterogeneous arrays |
-| `[]int{}` | TypeTypedArray | Homogeneous typed arrays |
+| `[]any{}` | TypeUntypedList | Heterogeneous lists |
+| `[]int{}` | TypeTypedList | Homogeneous typed lists |
 | `object` | TypeObject | Key-value objects |
 
 ## Installation
@@ -144,7 +144,7 @@ Complex Data (nested structures):
 - Bogo Deserialize:      4341 ns/op   4464 B/op  101 allocs/op  (4.43x faster)
 - MessagePack:           7888 ns/op   2921 B/op   86 allocs/op
 
-Array Data (large arrays):
+List Data (large lists):
 - JSON Serialize:       23173 ns/op   3889 B/op   15 allocs/op
 - Bogo Serialize:       54654 ns/op  41025 B/op 1040 allocs/op  (0.42x speed)
 - MessagePack:          10520 ns/op   8178 B/op    8 allocs/op
@@ -153,7 +153,7 @@ Array Data (large arrays):
 - Bogo Deserialize:      5822 ns/op   6016 B/op  119 allocs/op  (9.63x faster)
 - MessagePack:          18743 ns/op  11027 B/op  416 allocs/op
 
-Binary Data (large byte arrays):
+Binary Data (large byte lists):
 - JSON Serialize:       12452 ns/op  16904 B/op   17 allocs/op
 - Bogo Serialize:       12936 ns/op  64081 B/op   28 allocs/op  (0.96x speed)
 - MessagePack:           3876 ns/op  16256 B/op    5 allocs/op
@@ -303,7 +303,7 @@ Zero values are preserved with their type information:
 - `""` (empty string) → encodes as `TypeString` with 0 length → decodes as `""`
 - `0` → encodes as `TypeInt` → decodes as `int64(0)`
 - `false` → encodes as `TypeBoolFalse` → decodes as `false`
-- `[]any{}` → encodes as `TypeArray` with 0 elements → decodes as `[]any{}`
+- `[]any{}` → encodes as `TypeUntypedList` with 0 elements → decodes as `[]any{}`
 - `time.Time{}` → encodes as `TypeTimestamp` → decodes as zero time
 
 ### Nil Values (Null)

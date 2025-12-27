@@ -318,32 +318,32 @@ func BenchmarkComplexData(b *testing.B) {
 	})
 }
 
-// === ARRAY DATA BENCHMARKS ===
+// === LIST DATA BENCHMARKS ===
 
-func BenchmarkArrayData(b *testing.B) {
-	// Test with different array types
-	stringArray := make([]string, 100)
-	intArray := make([]int64, 100)
-	floatArray := make([]float64, 100)
+func BenchmarkListData(b *testing.B) {
+	// Test with different list types
+	stringList := make([]string, 100)
+	intList := make([]int64, 100)
+	floatList := make([]float64, 100)
 
-	// Fill arrays with test data
+	// Fill lists with test data
 	for i := 0; i < 100; i++ {
-		stringArray[i] = "test_string_" + string(rune(i+65)) // A, B, C, etc.
-		intArray[i] = int64(i * 100)
-		floatArray[i] = float64(i) * 3.14159
+		stringList[i] = "test_string_" + string(rune(i+65)) // A, B, C, etc.
+		intList[i] = int64(i * 100)
+		floatList[i] = float64(i) * 3.14159
 	}
 
 	testData := map[string]any{
-		"strings":  stringArray,
-		"integers": intArray,
-		"floats":   floatArray,
+		"strings":  stringList,
+		"integers": intList,
+		"floats":   floatList,
 		"metadata": map[string]any{
-			"count": len(stringArray),
-			"type":  "test_arrays",
+			"count": len(stringList),
+			"type":  "test_lists",
 		},
 	}
 
-	b.Run("Arrays_Serialize", func(b *testing.B) {
+	b.Run("Lists_Serialize", func(b *testing.B) {
 		b.Run("JSON", func(b *testing.B) {
 			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
@@ -380,10 +380,10 @@ func BenchmarkArrayData(b *testing.B) {
 	bogoData, _ := Marshal(testData)
 	msgpackData, _ := msgpack.Marshal(testData)
 
-	b.Logf("Array data sizes - JSON: %d bytes, Bogo: %d bytes, MessagePack: %d bytes",
+	b.Logf("List data sizes - JSON: %d bytes, Bogo: %d bytes, MessagePack: %d bytes",
 		len(jsonData), len(bogoData), len(msgpackData))
 
-	b.Run("Arrays_Deserialize", func(b *testing.B) {
+	b.Run("Lists_Deserialize", func(b *testing.B) {
 		b.Run("JSON", func(b *testing.B) {
 			b.ResetTimer()
 			for i := 0; i < b.N; i++ {

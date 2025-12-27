@@ -10,7 +10,7 @@
 //   - JSON-Compatible API: Familiar Marshal/Unmarshal functions
 //   - High Performance: Up to 99x faster deserialization than JSON
 //   - Compact Binary Format: Efficient variable-length encoding
-//   - Selective Field Decoding: Revolutionary optimization for large objects
+//   - Selective Field Decoding: Revolutionary optimization for complex data structures  
 //   - Zero vs Nil Distinction: Robust handling of zero and null values
 //   - Streaming Support: Memory-efficient streaming encoding/decoding
 //
@@ -88,7 +88,7 @@ var (
 //
 // This is the primary encoding function that converts Go values to compact
 // binary representation. It handles all supported types including primitives,
-// arrays, objects, and structs with automatic type detection.
+// lists, objects, and structs with automatic type detection.
 //
 // Example:
 //
@@ -103,7 +103,7 @@ var (
 //   - uint, uint8, uint16, uint32, uint64
 //   - float32, float64
 //   - []byte, time.Time
-//   - []any, []string, []int, []float64, etc.
+//   - []any, []string, []int, []float64, etc. (encoded as lists)
 //   - map[string]any, structs
 //
 // Returns the binary representation and any encoding error.
@@ -156,7 +156,7 @@ func encode(v any) ([]byte, error) {
 			byteSlice := data.Interface().([]byte)
 			return encodeBlob(byteSlice)
 		}
-		return encodeArray(data.Interface())
+		return encodeList(data.Interface())
 	case reflect.Map:
 		// Handle map types
 		return encodeObject(data.Interface())
@@ -188,7 +188,8 @@ func encode(v any) ([]byte, error) {
 //   - TypeInt → int64
 //   - TypeUint → uint64
 //   - TypeFloat → float64
-//   - TypeArray → []any
+//   - TypeUntypedList → []any (heterogeneous lists)
+//   - TypeTypedList → []T (homogeneous lists)  
 //   - TypeObject → map[string]any
 //   - And more...
 //
@@ -241,18 +242,18 @@ func Decode(data []byte) (any, error) {
 			return nil, err
 		}
 		return byteVal, nil
-	case TypeArray:
-		array, err := decodeArrayValue(data[2:])
+	case TypeUntypedList:
+		list, err := decodeListValue(data[2:])
 		if err != nil {
 			return nil, err
 		}
-		return array, nil
-	case TypeTypedArray:
-		typedArray, err := decodeTypedArray(data[2:])
+		return list, nil
+	case TypeTypedList:
+		typedList, err := decodeTypedList(data[2:])
 		if err != nil {
 			return nil, err
 		}
-		return typedArray, nil
+		return typedList, nil
 	case TypeObject:
 		obj, err := decodeObject(data[2:])
 		if err != nil {

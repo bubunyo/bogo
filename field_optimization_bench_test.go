@@ -28,7 +28,7 @@ type OptimizationTestData struct {
 		Data    []byte            `json:"data"`
 		Metrics map[string]int64  `json:"metrics"`
 		Config  map[string]string `json:"config"`
-		Arrays  [][]string        `json:"arrays"`
+		Lists  [][]string        `json:"lists"`
 	} `json:"large_payload"`
 
 	// Second field - simple target field we want to extract
@@ -62,11 +62,11 @@ func createBenchmarkData() OptimizationTestData {
 		config[string(rune('A'+i%26))] = "config_value_" + string(rune('0'+i%10))
 	}
 
-	arrays := make([][]string, 20)
-	for i := range arrays {
-		arrays[i] = make([]string, 10)
-		for j := range arrays[i] {
-			arrays[i][j] = "item_" + string(rune('0'+i%10)) + "_" + string(rune('0'+j%10))
+	lists := make([][]string, 20)
+	for i := range lists {
+		lists[i] = make([]string, 10)
+		for j := range lists[i] {
+			lists[i][j] = "item_" + string(rune('0'+i%10)) + "_" + string(rune('0'+j%10))
 		}
 	}
 
@@ -75,12 +75,12 @@ func createBenchmarkData() OptimizationTestData {
 			Data    []byte            `json:"data"`
 			Metrics map[string]int64  `json:"metrics"`
 			Config  map[string]string `json:"config"`
-			Arrays  [][]string        `json:"arrays"`
+			Lists  [][]string        `json:"lists"`
 		}{
 			Data:    largeData,
 			Metrics: metrics,
 			Config:  config,
-			Arrays:  arrays,
+			Lists:  lists,
 		},
 		TargetField: "important_value_we_want",
 		Metadata: map[string]any{

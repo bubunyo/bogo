@@ -448,63 +448,63 @@ func TestStructEncodingDecoding(t *testing.T) {
 	}
 }
 
-func TestTypedArrayEncodingDecoding(t *testing.T) {
+func TestTypedListEncodingDecoding(t *testing.T) {
 	tests := []struct {
 		name     string
 		input    any
 		expected any
 	}{
-		{"string array", []string{"hello", "world", "test"}, []string{"hello", "world", "test"}},
-		{"int array", []int{1, 2, 3, 4, 5}, []int64{1, 2, 3, 4, 5}},
-		{"byte array", []byte{10, 20, 30, 40, 50}, []byte{10, 20, 30, 40, 50}},
-		{"bool array", []bool{true, false, true, false}, []bool{true, false, true, false}},
-		{"float array", []float64{1.1, 2.2, 3.3}, []float64{1.1, 2.2, 3.3}},
-		{"uint array", []uint64{100, 200, 300}, []uint64{100, 200, 300}},
+		{"string list", []string{"hello", "world", "test"}, []string{"hello", "world", "test"}},
+		{"int list", []int{1, 2, 3, 4, 5}, []int64{1, 2, 3, 4, 5}},
+		{"byte list", []byte{10, 20, 30, 40, 50}, []byte{10, 20, 30, 40, 50}},
+		{"bool list", []bool{true, false, true, false}, []bool{true, false, true, false}},
+		{"float list", []float64{1.1, 2.2, 3.3}, []float64{1.1, 2.2, 3.3}},
+		{"uint list", []uint64{100, 200, 300}, []uint64{100, 200, 300}},
 		{"single element", []int{42}, []int64{42}},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Test direct typed array encoding
-			encoded, err := encodeTypedArray(tt.input)
+			// Test direct typed list encoding
+			encoded, err := encodeTypedList(tt.input)
 			require.NoError(t, err)
 
 			// Check encoding format
-			assert.Equal(t, byte(TypeTypedArray), encoded[0])
+			assert.Equal(t, byte(TypeTypedList), encoded[0])
 
 			// Decode
-			decoded, err := decodeTypedArray(encoded[1:])
+			decoded, err := decodeTypedList(encoded[1:])
 			require.NoError(t, err)
 			assert.Equal(t, tt.expected, decoded)
 		})
 	}
 }
 
-func TestTypedArrayFullRoundTrip(t *testing.T) {
+func TestTypedListFullRoundTrip(t *testing.T) {
 	tests := []struct {
 		name     string
 		input    any
 		expected any
 	}{
-		{"string array", []string{"hello", "world"}, []string{"hello", "world"}},
-		{"int array", []int{1, 2, 3}, []int64{1, 2, 3}},
-		{"byte array", []byte{10, 20, 30}, []byte{10, 20, 30}},
-		{"bool array", []bool{true, false, true}, []bool{true, false, true}},
-		{"float array", []float64{1.1, 2.2}, []float64{1.1, 2.2}},
+		{"string list", []string{"hello", "world"}, []string{"hello", "world"}},
+		{"int list", []int{1, 2, 3}, []int64{1, 2, 3}},
+		{"byte list", []byte{10, 20, 30}, []byte{10, 20, 30}},
+		{"bool list", []bool{true, false, true}, []bool{true, false, true}},
+		{"float list", []float64{1.1, 2.2}, []float64{1.1, 2.2}},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Note: This test won't automatically use typed arrays
-			// The main encoder decides based on array homogeneity
-			// For now, we'll test the typed array functions directly
+			// Note: This test won't automatically use typed lists
+			// The main encoder decides based on list homogeneity
+			// For now, we'll test the typed list functions directly
 
-			// Encode using typed array function directly
-			encoded, err := encodeTypedArray(tt.input)
+			// Encode using typed list function directly
+			encoded, err := encodeTypedList(tt.input)
 			require.NoError(t, err)
 
-			// Decode using typed array function directly
-			decoded, err := decodeTypedArray(encoded[1:])
+			// Decode using typed list function directly
+			decoded, err := decodeTypedList(encoded[1:])
 			require.NoError(t, err)
 
 			assert.Equal(t, tt.expected, decoded)
@@ -621,8 +621,8 @@ func TestTypeStringMethod(t *testing.T) {
 		{TypeBoolTrue, "<bool:true>"},
 		{TypeBoolFalse, "<bool:false>"},
 		{TypeString, "<string>"},
-		{TypeArray, "<array>"},
-		{TypeTypedArray, "<typed_array>"},
+		{TypeUntypedList, "<list>"},
+		{TypeTypedList, "<typed_list>"},
 		{TypeObject, "<object>"},
 		{TypeByte, "<byte>"},
 		{TypeInt, "<int>"},
@@ -763,19 +763,19 @@ func TestErrorPathsAndEdgeCases(t *testing.T) {
 		assert.Contains(t, err.Error(), "unsupported type")
 	})
 
-	t.Run("encodeTypedArray with empty array falls back to regular array", func(t *testing.T) {
-		emptyArray := []string{}
-		encoded, err := encodeTypedArray(emptyArray)
+	t.Run("encodeTypedList with empty list falls back to regular list", func(t *testing.T) {
+		emptyList := []string{}
+		encoded, err := encodeTypedList(emptyList)
 		require.NoError(t, err)
-		// Should be regular array type, not typed array
-		assert.Equal(t, byte(TypeArray), encoded[0])
+		// Should be regular list type, not typed list
+		assert.Equal(t, byte(TypeUntypedList), encoded[0])
 	})
 
-	t.Run("encodeTypedArray with mixed types falls back to regular array", func(t *testing.T) {
+	t.Run("encodeTypedList with mixed types falls back to regular list", func(t *testing.T) {
 		// This won't actually work since Go is strongly typed, but test the logic
-		// by using interface{} array
-		mixedArray := []interface{}{"string", 42}
-		_, err := encodeArray(mixedArray)
+		// by using interface{} list
+		mixedList := []interface{}{"string", 42}
+		_, err := encodeList(mixedList)
 		require.NoError(t, err)
 		// Just verify it doesn't panic
 	})
@@ -794,30 +794,30 @@ func TestErrorPathsAndEdgeCases(t *testing.T) {
 	})
 }
 
-// Test decodeArray edge cases to improve coverage
-func TestDecodeArrayEdgeCases(t *testing.T) {
-	t.Run("decodeArray with nil destination", func(t *testing.T) {
-		err := decodeArray([]byte{}, nil)
+// Test decodeList edge cases to improve coverage
+func TestDecodeListEdgeCases(t *testing.T) {
+	t.Run("decodeList with nil destination", func(t *testing.T) {
+		err := decodeList([]byte{}, nil)
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "invalid decoder destination")
 	})
 
-	t.Run("decodeArray with non-pointer destination", func(t *testing.T) {
+	t.Run("decodeList with non-pointer destination", func(t *testing.T) {
 		var slice []int
-		err := decodeArray([]byte{}, slice) // Not a pointer
+		err := decodeList([]byte{}, slice) // Not a pointer
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "invalid decoder destination")
 	})
 
-	t.Run("decodeArray with byte elements", func(t *testing.T) {
-		// Create array data with byte elements
+	t.Run("decodeList with byte elements", func(t *testing.T) {
+		// Create list data with byte elements
 		data := []byte{
 			TypeByte, 42, // First byte element
 			TypeByte, 43, // Second byte element
 		}
 
 		var result []any
-		err := decodeArray(data, &result)
+		err := decodeList(data, &result)
 		assert.Error(t, err) // This will error due to type mismatch logic
 	})
 }
@@ -837,11 +837,11 @@ func TestDecodeValueEdgeCases(t *testing.T) {
 		assert.Contains(t, err.Error(), "unsupported value type")
 	})
 
-	t.Run("decodeValue with array type now supported", func(t *testing.T) {
-		// Test the array case that now works
-		result, err := decodeValue([]byte{TypeArray, 1, 0})
+	t.Run("decodeValue with list type now supported", func(t *testing.T) {
+		// Test the list case that now works
+		result, err := decodeValue([]byte{TypeUntypedList, 1, 0})
 		assert.NoError(t, err)
-		assert.Equal(t, []any{}, result) // Empty array
+		assert.Equal(t, []any{}, result) // Empty list
 	})
 }
 

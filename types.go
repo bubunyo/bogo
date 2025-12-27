@@ -21,8 +21,8 @@ const (
 	TypeBlob
 	TypeTimestamp
 
-	TypeArray
-	TypeTypedArray
+	TypeUntypedList
+	TypeTypedList
 	TypeObject
 )
 
@@ -36,10 +36,10 @@ func (t Type) String() string {
 		return "<bool:false>"
 	case TypeString:
 		return "<string>"
-	case TypeArray:
-		return "<array>"
-	case TypeTypedArray:
-		return "<typed_array>"
+	case TypeUntypedList:
+		return "<list>"
+	case TypeTypedList:
+		return "<typed_list>"
 	case TypeObject:
 		return "<object>"
 	case TypeByte:

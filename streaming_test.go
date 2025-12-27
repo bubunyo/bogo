@@ -104,7 +104,7 @@ func TestStreamingAPICompatibility(t *testing.T) {
 
 	t.Run("Encoder with custom options", func(t *testing.T) {
 		var buf bytes.Buffer
-		encoder := NewEncoderWithOptions(&buf, WithStrictMode(true), WithCompactArrays(false))
+		encoder := NewEncoderWithOptions(&buf, WithStrictMode(true), WithCompactLists(false))
 
 		testData := []int{1, 2, 3, 4, 5}
 		err := encoder.Encode(testData)

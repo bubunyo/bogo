@@ -158,7 +158,7 @@ Total: 1 byte
 ```
 Timestamp 1705317045123 as 8-byte int64 little-endian = Jan 15, 2024 10:30:45.123 UTC
 
-### 10. Untyped Array (Type = 10)
+### 10. Untyped List (Type = 10)
 ```
 ┌─────────────┬─────────────┬─────────────┬─────────────────┐
 │     0x0A    │   Len Size  │  Data Size  │   Element Data  │
@@ -176,13 +176,13 @@ Timestamp 1705317045123 as 8-byte int64 little-endian = Jan 15, 2024 10:30:45.12
 
 **Note**: Each element includes its own type byte and length information for boundary detection.
 
-### 11. Typed Array (Type = 11)
+### 11. Typed List (Type = 11)
 
 #### For Fixed-Size Element Types (bool, byte)
 ```
 ┌─────────────┬─────────────┬─────────────┬─────────────┬─────────────────┐
-│     0x0B    │ Element Type│   Len Size  │ Array Count │   Element Data  │
-│(typed array)│  (1 byte)   │  (1 byte)   │  (varint)   │   (size bytes)  │
+│     0x0B    │ Element Type│   Len Size  │ List Count  │   Element Data  │
+│(typed list) │  (1 byte)   │  (1 byte)   │  (varint)   │   (size bytes)  │
 └─────────────┴─────────────┴─────────────┴─────────────┴─────────────────┘
 ```
 
@@ -190,13 +190,13 @@ Timestamp 1705317045123 as 8-byte int64 little-endian = Jan 15, 2024 10:30:45.12
 ```
 ┌─────────────┬─────────────┬─────────────┬─────────────┬─────────────────┐
 │     0x0B    │ Element Type│   Len Size  │  Data Size  │   Element Data  │
-│(typed array)│  (1 byte)   │  (1 byte)   │  (varint)   │   (size bytes)  │
+│(typed list) │  (1 byte)   │  (1 byte)   │  (varint)   │   (size bytes)  │
 └─────────────┴─────────────┴─────────────┴─────────────┴─────────────────┘
 ```
 
 - **Element Type**: The type of all elements
 - **Len Size (X)**: Number of bytes used for the count/size varint
-- **Array Count (N)**: Number of elements (for fixed-size types only)
+- **List Count (N)**: Number of elements (for fixed-size types only)
 - **Data Size (Y)**: Total size of all element data (for variable-size types)
 - **Element Data**: Concatenated element data
 
@@ -273,7 +273,7 @@ Each field entry in the Field Data follows this format:
 ```
 X=1 means "read next 1 byte for length", Y=5 means "string is 5 bytes long"
 
-### Untyped Array [1, "hi"]
+### Untyped List [1, "hi"]
 ```
 ┌─────────────┬─────────────┬─────────────┬─────────────┬─────────────────────────────────────────────┐
 │     0x00    │     0x0A    │     0x01    │     0x07    │              Element Data                   │
@@ -285,7 +285,7 @@ X=1 means "read next 1 byte for length", Y=5 means "string is 5 bytes long"
 ```
 X=1 means "read next 1 byte for data size", Y=7 means "element data is 7 bytes total"
 
-### Typed Array [true, false, true] (bool array, fixed-size)
+### Typed List [true, false, true] (bool list, fixed-size)
 ```
 ┌─────────────┬─────────────┬─────────────┬─────────────┬─────────────┬─────────────────┐
 │     0x00    │     0x0B    │     0x01    │     0x01    │     0x03    │  Element Data   │
@@ -301,7 +301,7 @@ X=1 means "read next 1 byte for data size", Y=7 means "element data is 7 bytes t
 - Each bool is 1 byte: 0x01=true, 0x00=false
 - Total: 3 × 1 = 3 bytes (no length headers needed)
 
-### Typed Array [100, 200, 300] (int array, variable-size)
+### Typed List [100, 200, 300] (int list, variable-size)
 ```
 ┌─────────────┬─────────────┬─────────────┬─────────────┬─────────────┬─────────────────┐
 │     0x00    │     0x0B    │     0x05    │     0x01    │     0x09    │  Element Data   │
@@ -317,7 +317,7 @@ X=1 means "read next 1 byte for data size", Y=7 means "element data is 7 bytes t
 - Each int has its own length header (varint encoding)
 - Parser reads Y bytes total, parsing elements sequentially
 
-### Typed Array ["a", "bb", "ccc"] (string array, variable-size)
+### Typed List ["a", "bb", "ccc"] (string list, variable-size)
 ```
 ┌─────────────┬─────────────┬─────────────┬─────────────┬─────────────┬─────────────────┐
 │     0x00    │     0x0B    │     0x03    │     0x01    │     0x0C    │  Element Data   │
@@ -361,5 +361,5 @@ X=1 means "read next 1 byte for data size", Y=7 means "element data is 7 bytes t
 - All multi-byte integers use little-endian encoding for fixed-width fields
 - Varints follow Go's binary.Varint/Uvarint encoding
 - Strings are UTF-8 encoded
-- Arrays and objects store total payload size for efficient parsing
+- Lists and objects store total payload size for efficient parsing
 - Float encoding separates IEEE 754 components for space efficiency

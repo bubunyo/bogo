@@ -8,10 +8,10 @@ import (
 // Decoder provides structured decoding with configurable options
 type Decoder struct {
 	// Configuration options
-	MaxDepth          int      // Maximum nesting depth for objects/arrays (0 = unlimited)
+	MaxDepth          int      // Maximum nesting depth for objects/lists (0 = unlimited)
 	StrictMode        bool     // Strict type checking and validation
 	AllowUnknownTypes bool     // Allow unknown type IDs for forward compatibility
-	MaxObjectSize     int64    // Maximum size for objects/arrays (0 = unlimited)
+	MaxObjectSize     int64    // Maximum size for objects/lists (0 = unlimited)
 	ValidateUTF8      bool     // Validate UTF-8 encoding in strings
 	TagName           string   // Struct tag name to use (default: "json" for compatibility)
 	SelectiveFields   []string // List of specific fields to decode (optimization)
@@ -215,11 +215,11 @@ func (d *Decoder) decode(data []byte) (any, error) {
 	case TypeTimestamp:
 		return d.decodeTimestampSafe(data[1:])
 
-	case TypeArray:
-		return d.decodeArrayWithDepth(data[1:])
+	case TypeUntypedList:
+		return d.decodeListWithDepth(data[1:])
 
-	case TypeTypedArray:
-		return d.decodeTypedArraySafe(data[1:])
+	case TypeTypedList:
+		return d.decodeTypedListSafe(data[1:])
 
 	case TypeObject:
 		if len(d.SelectiveFields) > 0 {
@@ -263,25 +263,25 @@ func (d *Decoder) decodeTimestampSafe(data []byte) (int64, error) {
 	return decodeTimestamp(data)
 }
 
-func (d *Decoder) decodeArrayWithDepth(data []byte) (any, error) {
+func (d *Decoder) decodeListWithDepth(data []byte) (any, error) {
 	d.depth++
 	defer func() { d.depth-- }()
 
-	// For now, use the original array decoding (without proper depth tracking)
+	// For now, use the original list decoding (without proper depth tracking)
 	// This is a placeholder implementation
-	return nil, fmt.Errorf("bogo decode error: array decoding with depth tracking not yet implemented")
+	return nil, fmt.Errorf("bogo decode error: list decoding with depth tracking not yet implemented")
 }
 
-func (d *Decoder) decodeTypedArraySafe(data []byte) (any, error) {
+func (d *Decoder) decodeTypedListSafe(data []byte) (any, error) {
 	d.depth++
 	defer func() { d.depth-- }()
 
-	result, err := decodeTypedArray(data)
+	result, err := decodeTypedList(data)
 	if err != nil {
 		return nil, err
 	}
 
-	// Additional validation for typed arrays if needed
+	// Additional validation for typed lists if needed
 	return result, nil
 }
 
@@ -468,19 +468,19 @@ func (d *Decoder) decodeValueSelective(data []byte) (any, error) {
 			return nil, err
 		}
 		return timestamp, nil
-	case TypeArray:
-		// For selective decoding, we still decode arrays normally
-		array, err := decodeArrayValue(data[1:])
+	case TypeUntypedList:
+		// For selective decoding, we still decode lists normally
+		list, err := decodeListValue(data[1:])
 		if err != nil {
 			return nil, err
 		}
-		return array, nil
-	case TypeTypedArray:
-		typedArray, err := decodeTypedArray(data[1:])
+		return list, nil
+	case TypeTypedList:
+		typedList, err := decodeTypedList(data[1:])
 		if err != nil {
 			return nil, err
 		}
-		return typedArray, nil
+		return typedList, nil
 	case TypeObject:
 		// Recursive object decoding (could be optimized further)
 		obj, err := d.decodeObjectSelective(data[1:])

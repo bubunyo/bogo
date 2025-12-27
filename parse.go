@@ -161,9 +161,9 @@ func (p *Parser) getBogoType(t reflect.Type) Type {
 		if t.Elem().Kind() == reflect.Uint8 {
 			return TypeBlob // []byte
 		}
-		return TypeArray
+		return TypeUntypedList
 	case reflect.Array:
-		return TypeArray
+		return TypeUntypedList
 	case reflect.Map:
 		return TypeObject
 	case reflect.Struct:

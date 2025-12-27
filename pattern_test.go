@@ -26,12 +26,12 @@ func TestEncoderPattern(t *testing.T) {
 		encoder := NewConfigurableEncoder(
 			WithMaxDepth(5),
 			WithStrictMode(true),
-			WithCompactArrays(false),
+			WithCompactLists(false),
 		)
 
 		assert.Equal(t, 5, encoder.MaxDepth)
 		assert.True(t, encoder.StrictMode)
-		assert.False(t, encoder.CompactArrays)
+		assert.False(t, encoder.CompactLists)
 	})
 
 	t.Run("Max depth limit", func(t *testing.T) {
@@ -74,16 +74,16 @@ func TestEncoderPattern(t *testing.T) {
 		assert.Equal(t, expected, buf.Bytes())
 	})
 
-	t.Run("Compact arrays option", func(t *testing.T) {
+	t.Run("Compact lists option", func(t *testing.T) {
 		numbers := []int{1, 2, 3, 4, 5}
 
-		// With compact arrays (default)
-		encoderCompact := NewConfigurableEncoder(WithCompactArrays(true))
+		// With compact lists (default)
+		encoderCompact := NewConfigurableEncoder(WithCompactLists(true))
 		compactData, err := encoderCompact.Encode(numbers)
 		require.NoError(t, err)
 
-		// Without compact arrays
-		encoderRegular := NewConfigurableEncoder(WithCompactArrays(false))
+		// Without compact lists
+		encoderRegular := NewConfigurableEncoder(WithCompactLists(false))
 		regularData, err := encoderRegular.Encode(numbers)
 		require.NoError(t, err)
 
@@ -271,7 +271,7 @@ func TestStatsCollection(t *testing.T) {
 // Test Pattern Integration
 func TestPatternIntegration(t *testing.T) {
 	t.Run("Encoder/Decoder round trip", func(t *testing.T) {
-		encoder := NewConfigurableEncoder(WithStrictMode(true), WithCompactArrays(true))
+		encoder := NewConfigurableEncoder(WithStrictMode(true), WithCompactLists(true))
 		decoder := NewConfigurableDecoder(WithDecoderStrictMode(true), WithUTF8Validation(true))
 
 		testCases := []any{
